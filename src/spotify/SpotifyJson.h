@@ -19,5 +19,8 @@ std::optional<Artist> artist(const QJsonObject &object);
 std::optional<Song> track(const QJsonObject &object, const Album &fallbackAlbum = {});
 /// the "item" of a playlist, saved-track or history entry, or its older "track"
 std::optional<Song> wrappedTrack(const QJsonObject &entry);
+/// the songs of a response whose "tracks" array holds whole track objects, as
+/// the core's top tracks and autoplay responses do
+QList<Song> tracks(const QJsonObject &response);
 
 } // namespace swiftify::json

@@ -218,7 +218,10 @@ private:
     QCoro::Task<> runResume(CancelToken token);
     QCoro::Task<> restartAudioOutput(CancelToken token);
     QCoro::Task<> runLoadLyrics(Song song, CancelToken token);
+    QCoro::Task<> runAutoplay(Song song, QString contextUri, CancelToken token);
     void cancelPlaybackRequest();
+    /// the queue ran out: pause, and say so
+    void finishQueue();
     void silenceWithdrawnPlayback();
     void handleEndOfTrack();
     void pollPlayback();
@@ -277,6 +280,9 @@ private:
     /// whatever is asking the core to make sound right now: a song loading, a
     /// resume, an output rebuild. empty once it finished or was withdrawn.
     TaskSlot m_playbackRequest;
+    /// what spotify suggests once the queue runs out. the songs it brings are
+    /// added to the queue, and the first of them starts playing.
+    TaskSlot m_autoplayRequest;
     bool m_playbackNeedsLoad = false;
     bool m_restoredPlayback = false;
     quint32 m_resumePositionMs = 0;

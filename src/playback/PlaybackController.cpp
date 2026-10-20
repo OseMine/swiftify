@@ -3,13 +3,16 @@
 #include "app/ErrorCenter.h"
 #include "app/Settings.h"
 #include "core/PlaybackCore.h"
+#include "spotify/SpotifyJson.h"
 #include "spotify/SpotifySession.h"
 #include "playback/PlaybackState.h"
 
 #include <QCoreApplication>
+#include <QJsonDocument>
 #include <QLoggingCategory>
 #include <QQmlEngine>
 #include <QRandomGenerator>
+#include <QSet>
 
 #include <QCoroTimer>
 
@@ -34,6 +37,26 @@ const QString kPlaybackStateKey = QStringLiteral("lastPlaybackState");
 
 /// a restart is offered after this much of a song has played
 constexpr quint32 kRestartThresholdMs = 3'000;
+
+/// how many of what just played spotify is told about when it suggests what
+/// follows. its own players send a handful, and a long list makes the
+/// suggestions worse
+constexpr qsizetype kRecentTrackCount = 8;
+
+/// the context spotify reads when suggesting what follows `song`: its album,
+/// or failing that its artist. empty when spotify cannot be asked, as for a
+/// music file of one's own.
+QString autoplayContext(const Song &song)
+{
+    if (!song.uri.startsWith(QLatin1StringView("spotify:track:"))) {
+        return {};
+    }
+    if (song.albumUri.startsWith(QLatin1StringView("spotify:album:"))) {
+        return song.albumUri;
+    }
+    const Artist artist = song.primaryArtist();
+    return artist.id.isEmpty() ? QString() : QStringLiteral("spotify:artist:") + artist.id;
+}
 
 } // namespace
 
@@ -182,6 +205,7 @@ void PlaybackController::adoptRemoteSong(const Song &song)
 {
     // a resume of ours still running would play over it
     cancelPlaybackRequest();
+    m_autoplayRequest.cancel();
     if (m_currentSong && !m_currentSong->isSameInstance(song)) {
         m_history.append(*m_currentSong);
     }
@@ -519,6 +543,7 @@ void PlaybackController::playLoadingTest()
 
 void PlaybackController::beginPlayback(const Song &song, const QList<Song> &queue, bool fromSearch)
 {
+    m_autoplayRequest.cancel();
     const bool inQueue = std::any_of(queue.begin(), queue.end(), [&](const Song &item) { return item.isSameInstance(song); });
     m_queue = inQueue ? queue : QList<Song> {song};
     m_history.clear();
@@ -614,6 +639,7 @@ void PlaybackController::startPlayback(const Song &song, bool recordHistory, boo
 {
     // playing a song here takes over from whatever started one elsewhere
     m_remote = false;
+    m_autoplayRequest.cancel();
     if (recordHistory && m_currentSong && !m_currentSong->isSameInstance(song)) {
         m_history.append(*m_currentSong);
     }
@@ -794,6 +820,7 @@ void PlaybackController::pause()
     // a play request may still be loading. withdrawing it stops its
     // completion from undoing this pause.
     cancelPlaybackRequest();
+    m_autoplayRequest.cancel();
     setLoading(false);
     if (m_currentSong) {
         setStatus(QStringLiteral("Paused"));
@@ -1245,6 +1272,87 @@ void PlaybackController::handleEndOfTrack()
         startPlayback(*next);
         return;
     }
+    // the queue ran out. spotify is asked what usually follows, and that plays
+    // on, so the queue only really ends when it has nothing to add.
+    if (m_autoplayRequest.isRunning()) {
+        return;
+    }
+    const QString context = autoplayContext(*m_currentSong);
+    if (!context.isEmpty()) {
+        m_playbackNeedsLoad = true;
+        setLoading(true);
+        setStatus(QStringLiteral("Loading"));
+        setPlaying(false);
+        detach(runAutoplay(*m_currentSong, context, m_autoplayRequest.renew()));
+        return;
+    }
+    finishQueue();
+}
+
+QCoro::Task<> PlaybackController::runAutoplay(Song song, QString contextUri, CancelToken token)
+{
+    QList<Song> suggestions;
+    try {
+        QStringList recent;
+        for (const Song &played : previouslyPlayedSongs()) {
+            if (played.uri.startsWith(QLatin1StringView("spotify:track:"))) {
+                recent.append(played.uri);
+            }
+        }
+        recent.append(song.uri);
+        while (recent.size() > kRecentTrackCount) {
+            recent.removeFirst();
+        }
+        const QString payload = co_await m_core->autoplayJson(contextUri, recent);
+        throwIfCancelled(token);
+        suggestions = json::tracks(QJsonDocument::fromJson(payload.toUtf8()).object());
+    } catch (const Cancelled &) {
+        m_autoplayRequest.finish(token);
+        co_return;
+    } catch (const SpotifyError &error) {
+        if (!isCancelled(token)) {
+            qCInfo(lcPlayer).noquote() << "suggesting what plays next:" << error.message();
+        }
+    }
+    m_autoplayRequest.finish(token);
+    if (isCancelled(token)) {
+        co_return;
+    }
+
+    // spotify can suggest a song already in the queue, or one just played;
+    // neither is something new to play.
+    QSet<QString> known;
+    for (const Song &queued : m_queue) {
+        known.insert(queued.uri);
+    }
+    for (const Song &played : m_history) {
+        known.insert(played.uri);
+    }
+    QList<Song> fresh;
+    for (const Song &suggestion : suggestions) {
+        if (!suggestion.isPlayable || suggestion.uri.isEmpty() || known.contains(suggestion.uri)) {
+            continue;
+        }
+        known.insert(suggestion.uri);
+        fresh.append(suggestion);
+    }
+    if (fresh.isEmpty()) {
+        finishQueue();
+        co_return;
+    }
+
+    m_queue.append(fresh);
+    if (m_shuffle) {
+        m_shuffledQueue.append(fresh);
+    }
+    setLoading(false);
+    queueDidChange();
+    startPlayback(fresh.first());
+}
+
+void PlaybackController::finishQueue()
+{
+    setLoading(false);
     // the queue is over, and the core is told so too: the offline output never
     // paused itself, and would play whatever it was handed next. neither
     // output can resume from the end, so play starts the song over.

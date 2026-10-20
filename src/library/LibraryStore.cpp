@@ -81,14 +81,7 @@ QList<Song> songsFromItems(const QString &payload)
 /// the top tracks response PlaybackCore::artistTopTracksJson completes with
 QList<Song> songsFromTopTracks(const QString &payload)
 {
-    QList<Song> songs;
-    const QJsonObject response = QJsonDocument::fromJson(payload.toUtf8()).object();
-    for (const QJsonValue &value : response.value(QStringLiteral("tracks")).toArray()) {
-        if (const auto song = json::track(value.toObject())) {
-            songs.append(*song);
-        }
-    }
-    return songs;
+    return json::tracks(QJsonDocument::fromJson(payload.toUtf8()).object());
 }
 
 } // namespace

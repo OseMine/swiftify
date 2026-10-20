@@ -6,6 +6,7 @@
 #include "playback/PlaybackController.h"
 #include "playback/PlaybackState.h"
 #include "spotify/CredentialStore.h"
+#include "spotify/OAuthFlow.h"
 #include "spotify/SpotifySession.h"
 #if defined(SWIFTIFY_HAS_DBUS) && defined(Q_OS_LINUX)
 #include "system/dbus/Mpris.h"
@@ -32,6 +33,17 @@ Song makeSong(const QString &name)
     // a music file of one's own: it plays from disk, with no network, which
     // none of these rules depend on
     song.uri = QUrl::fromLocalFile(QStringLiteral("/music/") + name + QStringLiteral(".flac")).toString();
+    song.durationMs = 200'000;
+    return song;
+}
+
+Song makeSpotifySong(const QString &name)
+{
+    Song song;
+    song.name = name;
+    song.artists = QStringLiteral("Artist");
+    song.uri = QStringLiteral("spotify:track:") + name;
+    song.albumUri = QStringLiteral("spotify:album:record");
     song.durationMs = 200'000;
     return song;
 }
@@ -66,6 +78,25 @@ private:
         explicit Rig(const QString &path = {})
             : settings(path.isEmpty() ? directory.filePath(QStringLiteral("swiftify.conf")) : path)
         {
+        }
+
+        /// a saved playback login, restored the way a launch does, so spotify
+        /// tracks play rather than asking for a sign-in
+        void signIn()
+        {
+            StoredCredentials saved;
+            saved.clientId = QString::fromLatin1(OAuthFlow::kPlaybackClientId);
+            saved.refreshToken = QStringLiteral("refresh");
+            saved.authorizationVersion = OAuthFlow::kPlaybackAuthorizationVersion;
+            saved.playbackLogin = QStringLiteral("librespot-login");
+            credentials.items.insert(CredentialStore::Account::Playback, saved);
+            session.restoreSavedSessions();
+            settle();
+            const auto call = core.take(QStringLiteral("connectStored"));
+            QVERIFY(call);
+            call->succeed(QStringLiteral("librespot-login"));
+            settle();
+            QVERIFY(session.isConnected());
         }
 
         /// lets the song the player asked for finish loading
@@ -449,6 +480,67 @@ private slots:
         // play loads it again from the start
         rig.player.resume();
         QVERIFY(rig.core.take(QStringLiteral("playFile")));
+    }
+
+    void theEndOfTheQueuePlaysWhatSpotifySuggests()
+    {
+        Rig rig;
+        rig.signIn();
+        const Song seed = makeSpotifySong(QStringLiteral("seed"));
+        rig.player.play(seed, {seed});
+        rig.settle();
+        const auto started = rig.core.take(QStringLiteral("playTrack"));
+        QVERIFY(started);
+        started->succeed();
+        rig.settle();
+        QVERIFY(rig.player.isPlaying());
+
+        rig.core.duration = 200'000;
+        rig.core.position = 199'500;
+        rig.core.endOfTrack = true;
+        QTRY_VERIFY_WITH_TIMEOUT(rig.player.isLoading(), 2000);
+        const auto suggestion = rig.core.take(QStringLiteral("autoplay"));
+        QVERIFY(suggestion);
+        // the album tells spotify what company the song was played in
+        QCOMPARE(suggestion->argument, QStringLiteral("spotify:album:record"));
+        QVERIFY(!rig.player.isPlaying());
+
+        suggestion->succeed(QStringLiteral(R"({"tracks":[
+            {"type":"track","uri":"spotify:track:next","name":"Next","duration_ms":200000,
+             "album":{"name":"Record","uri":"spotify:album:record","images":[]},
+             "artists":[{"name":"Artist"}]}
+        ]})"));
+        QTRY_COMPARE_WITH_TIMEOUT(rig.player.currentSong().uri, QStringLiteral("spotify:track:next"), 2000);
+        // the suggestion starts the way any song here does: it plays once the
+        // core has it
+        const auto next = rig.core.take(QStringLiteral("playTrack"));
+        QVERIFY(next);
+        QCOMPARE(next->argument, QStringLiteral("spotify:track:next"));
+        next->succeed();
+        rig.settle();
+        QVERIFY(rig.player.isPlaying());
+    }
+
+    void whenSpotifySuggestsNothingTheQueueFinishes()
+    {
+        Rig rig;
+        rig.signIn();
+        const Song seed = makeSpotifySong(QStringLiteral("seed"));
+        rig.player.play(seed, {seed});
+        rig.settle();
+        const auto started = rig.core.take(QStringLiteral("playTrack"));
+        QVERIFY(started);
+        started->succeed();
+        rig.settle();
+
+        rig.core.duration = 200'000;
+        rig.core.position = 199'500;
+        rig.core.endOfTrack = true;
+        QTRY_VERIFY_WITH_TIMEOUT(rig.player.isLoading(), 2000);
+        rig.core.take(QStringLiteral("autoplay"))->succeed(QStringLiteral(R"({"tracks":[]})"));
+        QTRY_COMPARE_WITH_TIMEOUT(rig.session.status(), QStringLiteral("Finished"), 2000);
+        QVERIFY(!rig.player.isPlaying());
+        QVERIFY(!rig.player.isLoading());
     }
 
     void aStaleEndOfTrackDoesNotSkipMidSong()

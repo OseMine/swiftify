@@ -204,4 +204,15 @@ std::optional<Song> wrappedTrack(const QJsonObject &entry)
     return legacy.isObject() ? track(legacy.toObject()) : std::nullopt;
 }
 
+QList<Song> tracks(const QJsonObject &response)
+{
+    QList<Song> songs;
+    for (const QJsonValue &value : response.value(QStringLiteral("tracks")).toArray()) {
+        if (const auto song = track(value.toObject())) {
+            songs.append(*song);
+        }
+    }
+    return songs;
+}
+
 } // namespace swiftify::json
