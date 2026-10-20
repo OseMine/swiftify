@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(Swiftify
-    VERSION 0.17.1
+    VERSION 0.18.0
     DESCRIPTION "A native Spotify client"
     LANGUAGES C CXX)
 
@@ -333,6 +333,30 @@ if(WIN32)
     unset(CMAKE_REQUIRED_LIBRARIES)
     if(SWIFTIFY_HAVE_SMTC)
         target_compile_definitions(swiftify_app PRIVATE SWIFTIFY_HAVE_SMTC)
+        # the timeline, which media widgets and the lock screen read the track's
+        # length and position from, needs the second version of the interface
+        set(CMAKE_REQUIRED_LIBRARIES runtimeobject)
+        check_cxx_source_compiles([=[
+            #ifdef __MINGW32__
+            #define ____FIReference_1_boolean_INTERFACE_DEFINED__
+            #endif
+            #include <windows.h>
+            #include <roapi.h>
+            #include <windows.media.h>
+            int main()
+            {
+                ABI::Windows::Media::ISystemMediaTransportControls2 *controls = nullptr;
+                ABI::Windows::Media::ISystemMediaTransportControlsTimelineProperties *timeline = nullptr;
+                return controls || timeline ? 1 : 0;
+            }
+        ]=] SWIFTIFY_HAVE_SMTC_TIMELINE)
+        unset(CMAKE_REQUIRED_LIBRARIES)
+        if(SWIFTIFY_HAVE_SMTC_TIMELINE)
+            target_compile_definitions(swiftify_app PRIVATE SWIFTIFY_HAVE_SMTC_TIMELINE)
+        else()
+            message(WARNING "These Windows SDK headers lack the SMTC timeline interfaces, so media widgets "
+                "will not see the track's length; build with MSVC or a newer mingw-w64 for them.")
+        endif()
     else()
         message(WARNING "This toolchain's windows.media.h has no SystemMediaTransportControls, so Swiftify is "
             "building without the Windows media controls (media overlay, lock screen, media keys). "
@@ -347,6 +371,15 @@ if(SWIFTIFY_IS_LINUX)
 endif()
 # a windowed app on windows, with no console window of its own
 set_target_properties(swiftify PROPERTIES WIN32_EXECUTABLE ON)
+if(WIN32)
+    # the exe's own icon and version, which explorer, the taskbar and a pinned
+    # shortcut read. without them one fell back to a blank page (#86)
+    string(REPLACE "." "," SWIFTIFY_VERSION_RC "${PROJECT_VERSION}")
+    set(SWIFTIFY_VERSION_RC "${SWIFTIFY_VERSION_RC},0")
+    file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/swiftify.ico" SWIFTIFY_WINDOWS_ICON)
+    configure_file(packaging/windows/swiftify.rc.in ${CMAKE_CURRENT_BINARY_DIR}/swiftify.rc @ONLY)
+    target_sources(swiftify PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/swiftify.rc)
+endif()
 if(MINGW)
     # qt's WinMain shim reads msvcrt's __argc, which a mingw on ucrt (as
     # homebrew's is) lacks; mingw's own start-up calls main() just as well

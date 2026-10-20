@@ -1,4 +1,5 @@
 #include "system/windows/WindowsIntegration.h"
+#include "system/MediaTimeline.h"
 
 #include "playback/PlaybackController.h"
 #include "theme/Theme.h"
@@ -123,13 +124,24 @@ struct WindowsIntegration::Native {
     std::array<HICON, 4> icons {};
 
 #ifdef SWIFTIFY_HAVE_SMTC
+    bool ownsWinRt = false;
     Microsoft::WRL::ComPtr<ABI::Windows::Media::ISystemMediaTransportControls> controls;
+#ifdef SWIFTIFY_HAVE_SMTC_TIMELINE
+    Microsoft::WRL::ComPtr<ABI::Windows::Media::ISystemMediaTransportControls2> timelineControls;
+    Microsoft::WRL::ComPtr<ABI::Windows::Media::ISystemMediaTransportControlsTimelineProperties> timeline;
+#endif
     EventRegistrationToken buttonToken {};
 #endif
 
     Native()
     {
         ownsCom = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
+#ifdef SWIFTIFY_HAVE_SMTC
+        // s_false means another part of the process, qt's own plugin say, has
+        // already initialised winrt on this thread: it counts as one, so this
+        // one has nothing to undo
+        ownsWinRt = RoInitialize(RO_INIT_SINGLETHREADED) == S_OK;
+#endif
         const std::array<QStyle::StandardPixmap, 4> symbols {
             QStyle::SP_MediaSkipBackward, QStyle::SP_MediaPlay,
             QStyle::SP_MediaPause, QStyle::SP_MediaSkipForward
@@ -148,6 +160,10 @@ struct WindowsIntegration::Native {
                 buttonToken.value = 0;
             }
             controls->put_IsEnabled(false);
+#ifdef SWIFTIFY_HAVE_SMTC_TIMELINE
+            timeline.Reset();
+            timelineControls.Reset();
+#endif
             controls.Reset();
         }
 #endif
@@ -163,6 +179,9 @@ struct WindowsIntegration::Native {
             if (icon) DestroyIcon(icon);
         }
         cleanupMediaControls();
+#ifdef SWIFTIFY_HAVE_SMTC
+        if (ownsWinRt) RoUninitialize();
+#endif
         if (ownsCom) CoUninitialize();
     }
 
@@ -235,6 +254,11 @@ struct WindowsIntegration::Native {
 void WindowsIntegration::initializeProcess()
 {
     SetCurrentProcessExplicitAppUserModelID(L"dev.addenator.Swiftify.Qt");
+    // the audio thread feeds wasapi from this process, and a machine busy
+    // compiling or playing a game starves it until the buffer runs dry: a
+    // burst of crackle that librespot reports as a stutter. above normal
+    // keeps it ahead of the background without taking the machine over (#78)
+    SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
 }
 
 void WindowsIntegration::setNativeTitleBar(QWindow *window, bool enabled)
@@ -288,6 +312,9 @@ WindowsIntegration::WindowsIntegration(PlaybackController *player, Theme *theme,
     connect(m_player, &PlaybackController::loadingChanged, this, &WindowsIntegration::updateProgress);
     connect(m_player, &PlaybackController::livePositionChanged, this, &WindowsIntegration::updateProgress);
     connect(m_player, &PlaybackController::durationChanged, this, &WindowsIntegration::updateProgress);
+    connect(m_player, &PlaybackController::durationChanged, this, &WindowsIntegration::updateMediaTimeline);
+    // the same clock, seek and pause signal the taskbar's progress moves on
+    connect(m_player, &PlaybackController::mediaStateChanged, this, &WindowsIntegration::updateMediaTimeline);
 }
 
 WindowsIntegration::~WindowsIntegration()
@@ -528,8 +555,19 @@ void WindowsIntegration::initializeMediaControls()
     }));
     m_native->controls->add_ButtonPressed(handler.Get(), &m_native->buttonToken);
 
+#ifdef SWIFTIFY_HAVE_SMTC_TIMELINE
+    // one timeline, kept and rewritten: the interface is the session's, not
+    // each track's
+    ComPtr<IInspectable> timeline;
+    HStringReference timelineId(RuntimeClass_Windows_Media_SystemMediaTransportControlsTimelineProperties);
+    if (SUCCEEDED(m_native->controls.As(&m_native->timelineControls))
+        && SUCCEEDED(RoActivateInstance(timelineId.Get(), &timeline)) && timeline) {
+        timeline.As(&m_native->timeline);
+    }
+#endif
     updateMediaMetadata();
     updateMediaControls();
+    updateMediaTimeline();
 }
 
 void WindowsIntegration::handleMediaButton(int button)
@@ -641,12 +679,35 @@ void WindowsIntegration::updateMediaMetadata()
 
     updater->Update();
 }
+
+void WindowsIntegration::updateMediaTimeline()
+{
+#ifdef SWIFTIFY_HAVE_SMTC_TIMELINE
+    if (!m_native || !m_native->timelineControls || !m_native->timeline) return;
+    const auto value = MediaTimeline::fromMilliseconds(m_player->hasSong(),
+        quint32(std::max(0, m_player->durationMs())),
+        m_player->currentSong().durationMs, m_player->livePositionMs());
+    ABI::Windows::Foundation::TimeSpan zero {};
+    ABI::Windows::Foundation::TimeSpan end {value.end};
+    ABI::Windows::Foundation::TimeSpan position {value.position};
+    auto *timeline = m_native->timeline.Get();
+    // a shortening track, or none, is cleared from the ends inwards first, so
+    // no position is ever published outside the bounds it sits in
+    if (SUCCEEDED(timeline->put_Position(zero)) && SUCCEEDED(timeline->put_MaxSeekTime(zero))
+        && SUCCEEDED(timeline->put_StartTime(zero)) && SUCCEEDED(timeline->put_EndTime(end))
+        && SUCCEEDED(timeline->put_MinSeekTime(zero)) && SUCCEEDED(timeline->put_MaxSeekTime(end))
+        && SUCCEEDED(timeline->put_Position(position))) {
+        m_native->timelineControls->UpdateTimelineProperties(timeline);
+    }
+#endif
+}
 #else
 // built without the media controls: the headers had no declarations for them
 void WindowsIntegration::initializeMediaControls() {}
 void WindowsIntegration::handleMediaButton(int) {}
 void WindowsIntegration::updateMediaControls() {}
 void WindowsIntegration::updateMediaMetadata() {}
+void WindowsIntegration::updateMediaTimeline() {}
 #endif
 
 } // namespace swiftify
