@@ -1,6 +1,7 @@
 #include "app/Settings.h"
 
 #include <QQmlEngine>
+#include <QDebug>
 #include <QRegularExpression>
 
 #include <algorithm>
@@ -97,6 +98,18 @@ void Settings::sync()
     m_store.sync();
 }
 
+/// a change is written through before it is announced: a desktop session can
+/// end straight after one, before qsettings reaches the event loop or the app
+/// gets to its destructor, and the change would have been lost
+void Settings::savePreference(const QString &key, const QVariant &value)
+{
+    m_store.setValue(key, value);
+    m_store.sync();
+    if (m_store.status() != QSettings::NoError) {
+        qWarning() << "could not save" << key << "to" << m_store.fileName();
+    }
+}
+
 void Settings::load()
 {
     m_visualizersEnabled = stored<bool>(m_store, "visualizersEnabled", m_visualizersEnabled);
@@ -188,7 +201,7 @@ void Settings::setVisualizersEnabled(bool value)
         return;
     }
     m_visualizersEnabled = value;
-    m_store.setValue(QStringLiteral("visualizersEnabled"), value);
+    savePreference(QStringLiteral("visualizersEnabled"), value);
     emit visualizersEnabledChanged();
 }
 
@@ -198,7 +211,7 @@ void Settings::setPlayerBarVisualizer(bool value)
         return;
     }
     m_playerBarVisualizer = value;
-    m_store.setValue(QStringLiteral("playerBarVisualizer"), value);
+    savePreference(QStringLiteral("playerBarVisualizer"), value);
     emit playerBarVisualizerChanged();
 }
 
@@ -208,7 +221,7 @@ void Settings::setTrackListVisualizer(bool value)
         return;
     }
     m_trackListVisualizer = value;
-    m_store.setValue(QStringLiteral("trackListVisualizer"), value);
+    savePreference(QStringLiteral("trackListVisualizer"), value);
     emit trackListVisualizerChanged();
 }
 
@@ -218,7 +231,7 @@ void Settings::setImmersiveVisualizer(bool value)
         return;
     }
     m_immersiveVisualizer = value;
-    m_store.setValue(QStringLiteral("immersiveVisualizer"), value);
+    savePreference(QStringLiteral("immersiveVisualizer"), value);
     emit immersiveVisualizerChanged();
 }
 
@@ -228,7 +241,7 @@ void Settings::setCircularVisualizer(bool value)
         return;
     }
     m_circularVisualizer = value;
-    m_store.setValue(QStringLiteral("circularVisualizer"), value);
+    savePreference(QStringLiteral("circularVisualizer"), value);
     emit circularVisualizerChanged();
 }
 
@@ -238,7 +251,7 @@ void Settings::setContinuousVisualizer(bool value)
         return;
     }
     m_continuousVisualizer = value;
-    m_store.setValue(QStringLiteral("continuousVisualizer"), value);
+    savePreference(QStringLiteral("continuousVisualizer"), value);
     emit continuousVisualizerChanged();
 }
 
@@ -248,7 +261,7 @@ void Settings::setRoundArtwork(bool value)
         return;
     }
     m_roundArtwork = value;
-    m_store.setValue(QStringLiteral("roundArtwork"), value);
+    savePreference(QStringLiteral("roundArtwork"), value);
     emit roundArtworkChanged();
 }
 
@@ -259,7 +272,7 @@ void Settings::setVisualizerShape(const QString &raw)
         return;
     }
     m_visualizerShape = value;
-    m_store.setValue(QStringLiteral("circularVisualizerShape"), value);
+    savePreference(QStringLiteral("circularVisualizerShape"), value);
     emit visualizerShapeChanged();
 }
 
@@ -270,7 +283,7 @@ void Settings::setVisualizerSensitivity(double raw)
         return;
     }
     m_visualizerSensitivity = value;
-    m_store.setValue(QStringLiteral("visualizerSensitivity"), value);
+    savePreference(QStringLiteral("visualizerSensitivity"), value);
     emit visualizerSensitivityChanged();
 }
 
@@ -281,7 +294,7 @@ void Settings::setStreamingQuality(int raw)
         return;
     }
     m_streamingQuality = value;
-    m_store.setValue(QStringLiteral("streamingQuality"), value);
+    savePreference(QStringLiteral("streamingQuality"), value);
     emit streamingQualityChanged();
 }
 
@@ -292,7 +305,7 @@ void Settings::setSongCacheMegabytes(int megabytes)
         return;
     }
     m_songCacheMegabytes = value;
-    m_store.setValue(QStringLiteral("songCacheMegabytes"), value);
+    savePreference(QStringLiteral("songCacheMegabytes"), value);
     emit songCacheMegabytesChanged();
 }
 
@@ -302,7 +315,7 @@ void Settings::setCrossfadeEnabled(bool value)
         return;
     }
     m_crossfadeEnabled = value;
-    m_store.setValue(QStringLiteral("crossfadeEnabled"), value);
+    savePreference(QStringLiteral("crossfadeEnabled"), value);
     emit crossfadeEnabledChanged();
 }
 
@@ -313,7 +326,7 @@ void Settings::setCrossfadeDurationSeconds(int raw)
         return;
     }
     m_crossfadeDurationSeconds = value;
-    m_store.setValue(QStringLiteral("crossfadeDurationSeconds"), value);
+    savePreference(QStringLiteral("crossfadeDurationSeconds"), value);
     emit crossfadeDurationSecondsChanged();
 }
 
@@ -323,7 +336,7 @@ void Settings::setLivingBackdrop(bool value)
         return;
     }
     m_livingBackdrop = value;
-    m_store.setValue(QStringLiteral("livingBackdrop"), value);
+    savePreference(QStringLiteral("livingBackdrop"), value);
     emit livingBackdropChanged();
 }
 
@@ -334,7 +347,7 @@ void Settings::setBackdropBlur(double raw)
         return;
     }
     m_backdropBlur = value;
-    m_store.setValue(QStringLiteral("backdropBlur"), value);
+    savePreference(QStringLiteral("backdropBlur"), value);
     emit backdropBlurChanged();
 }
 
@@ -345,7 +358,7 @@ void Settings::setBackdropReactivity(double raw)
         return;
     }
     m_backdropReactivity = value;
-    m_store.setValue(QStringLiteral("backdropReactivity"), value);
+    savePreference(QStringLiteral("backdropReactivity"), value);
     emit backdropReactivityChanged();
 }
 
@@ -355,7 +368,7 @@ void Settings::setDebuggingEnabled(bool value)
         return;
     }
     m_debuggingEnabled = value;
-    m_store.setValue(QStringLiteral("debuggingEnabled"), value);
+    savePreference(QStringLiteral("debuggingEnabled"), value);
     emit debuggingEnabledChanged();
 }
 
@@ -365,7 +378,7 @@ void Settings::setPinnedPlaylistsExpanded(bool value)
         return;
     }
     m_pinnedPlaylistsExpanded = value;
-    m_store.setValue(QStringLiteral("pinnedPlaylistsExpanded"), value);
+    savePreference(QStringLiteral("pinnedPlaylistsExpanded"), value);
     emit pinnedPlaylistsExpandedChanged();
 }
 
@@ -375,7 +388,7 @@ void Settings::setAllPlaylistsExpanded(bool value)
         return;
     }
     m_allPlaylistsExpanded = value;
-    m_store.setValue(QStringLiteral("allPlaylistsExpanded"), value);
+    savePreference(QStringLiteral("allPlaylistsExpanded"), value);
     emit allPlaylistsExpandedChanged();
 }
 
@@ -386,7 +399,7 @@ void Settings::setImmersivePlayerPanel(const QString &raw)
         return;
     }
     m_immersivePlayerPanel = value;
-    m_store.setValue(QStringLiteral("immersivePlayerPanel"), value);
+    savePreference(QStringLiteral("immersivePlayerPanel"), value);
     emit immersivePlayerPanelChanged();
 }
 
@@ -397,7 +410,7 @@ void Settings::setSleepTimerFade(const QString &raw)
         return;
     }
     m_sleepTimerFade = value;
-    m_store.setValue(QStringLiteral("sleepTimerFade"), value);
+    savePreference(QStringLiteral("sleepTimerFade"), value);
     emit sleepTimerFadeChanged();
 }
 
@@ -407,7 +420,7 @@ void Settings::setReduceMotion(bool value)
         return;
     }
     m_reduceMotion = value;
-    m_store.setValue(QStringLiteral("reduceMotion"), value);
+    savePreference(QStringLiteral("reduceMotion"), value);
     emit reduceMotionChanged();
 }
 
@@ -417,7 +430,7 @@ void Settings::setPerformanceMode(bool value)
         return;
     }
     m_performanceMode = value;
-    m_store.setValue(QStringLiteral("performanceMode"), value);
+    savePreference(QStringLiteral("performanceMode"), value);
     emit performanceModeChanged();
 }
 
@@ -427,7 +440,7 @@ void Settings::setNoShapes(bool value)
         return;
     }
     m_noShapes = value;
-    m_store.setValue(QStringLiteral("noShapes"), value);
+    savePreference(QStringLiteral("noShapes"), value);
     emit noShapesChanged();
 }
 
@@ -438,7 +451,7 @@ void Settings::setThemeSource(const QString &raw)
         return;
     }
     m_themeSource = value;
-    m_store.setValue(QStringLiteral("themeSource"), value);
+    savePreference(QStringLiteral("themeSource"), value);
     emit themeSourceChanged();
 }
 
@@ -449,7 +462,7 @@ void Settings::setThemeMode(const QString &raw)
         return;
     }
     m_themeMode = value;
-    m_store.setValue(QStringLiteral("themeMode"), value);
+    savePreference(QStringLiteral("themeMode"), value);
     emit themeModeChanged();
 }
 
@@ -460,7 +473,7 @@ void Settings::setMatugenColorsPath(const QString &raw)
         return;
     }
     m_matugenColorsPath = value;
-    m_store.setValue(QStringLiteral("matugenColorsPath"), value);
+    savePreference(QStringLiteral("matugenColorsPath"), value);
     emit matugenColorsPathChanged();
 }
 
@@ -470,7 +483,7 @@ void Settings::setShowWindowControls(bool value)
         return;
     }
     m_showWindowControls = value;
-    m_store.setValue(QStringLiteral("showWindowControls"), value);
+    savePreference(QStringLiteral("showWindowControls"), value);
     emit showWindowControlsChanged();
 }
 
@@ -480,7 +493,7 @@ void Settings::setWindowControlsOnRight(bool value)
         return;
     }
     m_windowControlsOnRight = value;
-    m_store.setValue(QStringLiteral("windowControlsOnRight"), value);
+    savePreference(QStringLiteral("windowControlsOnRight"), value);
     emit windowControlsOnRightChanged();
 }
 
@@ -490,7 +503,7 @@ void Settings::setStatsSource(const QString &value)
         return;
     }
     m_statsSource = value;
-    m_store.setValue(QStringLiteral("statsSource"), value);
+    savePreference(QStringLiteral("statsSource"), value);
     emit statsSourceChanged();
 }
 
@@ -501,7 +514,7 @@ void Settings::setStatsFmUsername(const QString &value)
         return;
     }
     m_statsFmUsername = trimmed;
-    m_store.setValue(QStringLiteral("statsFmUsername"), trimmed);
+    savePreference(QStringLiteral("statsFmUsername"), trimmed);
     emit statsFmUsernameChanged();
 }
 
@@ -511,7 +524,7 @@ void Settings::setTrackListening(bool value)
         return;
     }
     m_trackListening = value;
-    m_store.setValue(QStringLiteral("trackListening"), value);
+    savePreference(QStringLiteral("trackListening"), value);
     emit trackListeningChanged();
 }
 
@@ -521,7 +534,7 @@ void Settings::setNativeTitleBar(bool value)
         return;
     }
     m_nativeTitleBar = value;
-    m_store.setValue(QStringLiteral("nativeTitleBar"), value);
+    savePreference(QStringLiteral("nativeTitleBar"), value);
     emit nativeTitleBarChanged();
 }
 
@@ -531,7 +544,7 @@ void Settings::setTrayIcon(bool value)
         return;
     }
     m_trayIcon = value;
-    m_store.setValue(QStringLiteral("trayIcon"), value);
+    savePreference(QStringLiteral("trayIcon"), value);
     emit trayIconChanged();
 }
 
@@ -542,7 +555,7 @@ void Settings::setZoom(double raw)
         return;
     }
     m_zoom = value;
-    m_store.setValue(QStringLiteral("zoom"), value);
+    savePreference(QStringLiteral("zoom"), value);
     emit zoomChanged();
 }
 
@@ -551,7 +564,7 @@ void Settings::setDiscordEnabled(bool value)
 {
     if (m_discordEnabled == value) return;
     m_discordEnabled = value;
-    m_store.setValue(QStringLiteral("discordEnabled"), value);
+    savePreference(QStringLiteral("discordEnabled"), value);
     emit discordEnabledChanged();
 }
 
@@ -561,7 +574,7 @@ void Settings::setDiscordApplicationId(const QString &raw)
     if (!value.isEmpty() && !QRegularExpression(QStringLiteral("^[0-9]{17,20}$")).match(value).hasMatch()) return;
     if (m_discordApplicationId == value) return;
     m_discordApplicationId = value;
-    m_store.setValue(QStringLiteral("discordApplicationId"), value);
+    savePreference(QStringLiteral("discordApplicationId"), value);
     emit discordApplicationIdChanged();
 }
 void Settings::setLanguage(const QString &raw)
@@ -569,7 +582,7 @@ void Settings::setLanguage(const QString &raw)
     const QString value = oneOf(raw, {QStringLiteral("system"), QStringLiteral("en"), QStringLiteral("ru")}, QStringLiteral("system"));
     if (m_language == value) return;
     m_language = value;
-    m_store.setValue(QStringLiteral("language"), value);
+    savePreference(QStringLiteral("language"), value);
     emit languageChanged();
 }
 

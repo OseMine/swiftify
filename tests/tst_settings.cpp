@@ -4,12 +4,49 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <QCoreApplication>
+#include <QProcess>
+#include <cstdlib>
+
 using swiftify::Settings;
 
 class SettingsTest : public QObject {
     Q_OBJECT
 
 private slots:
+    /// a desktop session can end before qsettings reaches the event loop or
+    /// the destructor runs. a change made just before it has to survive a
+    /// process that dies without either
+    void visualPreferencesSurviveAbruptExit()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QStringLiteral("swiftify.conf"));
+        QProcess writer;
+        writer.start(QCoreApplication::applicationFilePath(),
+                     {QStringLiteral("--write-before-exit"), path});
+        QVERIFY(writer.waitForFinished(10000));
+        QCOMPARE(writer.exitCode(), 0);
+
+        Settings reopened(path);
+        QVERIFY(!reopened.visualizersEnabled());
+        QVERIFY(!reopened.playerBarVisualizer());
+        QVERIFY(!reopened.trackListVisualizer());
+        QVERIFY(!reopened.immersiveVisualizer());
+        QVERIFY(reopened.circularVisualizer());
+        QVERIFY(reopened.roundArtwork());
+        QCOMPARE(reopened.visualizerShape(), QStringLiteral("wave"));
+        QCOMPARE(reopened.visualizerSensitivity(), 1.5);
+        QVERIFY(!reopened.livingBackdrop());
+        QCOMPARE(reopened.backdropBlur(), 24.0);
+        QCOMPARE(reopened.backdropReactivity(), 2.7);
+        QVERIFY(reopened.reduceMotion());
+        QVERIFY(reopened.performanceMode());
+        QVERIFY(reopened.noShapes());
+        QCOMPARE(reopened.themeSource(), QStringLiteral("catppuccin-mocha"));
+        QCOMPARE(reopened.themeMode(), QStringLiteral("dark"));
+        QCOMPARE(reopened.zoom(), 1.3);
+    }
+
     void discordPreferencesPersist()
     {
         QTemporaryDir directory;
@@ -212,5 +249,33 @@ private slots:
     }
 };
 
-QTEST_GUILESS_MAIN(SettingsTest)
+int main(int argc, char **argv)
+{
+    QCoreApplication application(argc, argv);
+    const QStringList arguments = application.arguments();
+    if (arguments.size() == 3 && arguments.at(1) == QLatin1StringView("--write-before-exit")) {
+        Settings settings(arguments.at(2));
+        settings.setVisualizersEnabled(false);
+        settings.setPlayerBarVisualizer(false);
+        settings.setTrackListVisualizer(false);
+        settings.setImmersiveVisualizer(false);
+        settings.setCircularVisualizer(true);
+        settings.setRoundArtwork(true);
+        settings.setVisualizerShape(QStringLiteral("wave"));
+        settings.setVisualizerSensitivity(1.5);
+        settings.setLivingBackdrop(false);
+        settings.setBackdropBlur(24.0);
+        settings.setBackdropReactivity(2.7);
+        settings.setReduceMotion(true);
+        settings.setPerformanceMode(true);
+        settings.setNoShapes(true);
+        settings.setThemeSource(QStringLiteral("catppuccin-mocha"));
+        settings.setThemeMode(QStringLiteral("dark"));
+        settings.setZoom(1.3);
+        // no event loop and no destructors, as a forced session end gives
+        std::_Exit(EXIT_SUCCESS);
+    }
+    SettingsTest test;
+    return QTest::qExec(&test, argc, argv);
+}
 #include "tst_settings.moc"

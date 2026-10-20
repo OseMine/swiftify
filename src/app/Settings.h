@@ -224,6 +224,7 @@ signals:
 
 private:
     void load();
+    void savePreference(const QString &key, const QVariant &value);
 
     QSettings m_store;
 
