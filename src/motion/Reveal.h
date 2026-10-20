@@ -6,6 +6,8 @@
 #include <QQuickItem>
 #include <QtQml/qqmlregistration.h>
 
+class QPropertyAnimation;
+
 namespace swiftify {
 
 /// `Reveal.shown` on any item, in place of `visible`: the item springs in,
@@ -51,6 +53,9 @@ private:
     qreal m_scaleFrom = 0.85;
     int m_duration = 440;
     qreal m_overshoot = 2.2;
+    // owned by the group, kept for the life of the item
+    QPropertyAnimation *m_fade = nullptr;
+    QPropertyAnimation *m_grow = nullptr;
     QParallelAnimationGroup m_animation;
 };
 

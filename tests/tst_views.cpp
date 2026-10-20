@@ -1582,6 +1582,40 @@ private slots:
         QCOMPARE(box->opacity(), 0.0);
     }
 
+    /// turning a reveal back on as it finishes used to rebuild its animations
+    /// from inside the group's own state change, which left the group stepping
+    /// over freed animations and crashed as the app opened (#29)
+    void revealsToggledMidAnimationStayIntact()
+    {
+        Rig rig;
+        QQmlComponent component(&rig.engine);
+        component.setData("import QtQuick\nimport Swiftify\nItem {\n"
+                          "    property bool on: false\n"
+                          "    property alias box: box\n"
+                          "    Rectangle { id: box; width: 40; height: 40; Reveal.shown: parent.on }\n"
+                          "}\n",
+                          QUrl());
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *box = object->property("box").value<QQuickItem *>();
+        QVERIFY(box);
+
+        // back and forth faster than the out animation runs, including while
+        // it is finishing and hiding the item
+        for (int i = 0; i < 24; ++i) {
+            object->setProperty("on", i % 2 == 0);
+            QTest::qWait(16);
+        }
+        object->setProperty("on", true);
+        QVERIFY(box->isVisible());
+        QTRY_COMPARE(box->opacity(), 1.0);
+        QTRY_COMPARE(box->scale(), 1.0);
+
+        object->setProperty("on", false);
+        QTRY_VERIFY(!box->isVisible());
+        QCOMPARE(box->opacity(), 0.0);
+    }
+
     void revealedThingsGrowWithReducedMotion_data()
     {
         QTest::addColumn<bool>("performance");

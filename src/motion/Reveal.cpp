@@ -13,11 +13,21 @@ RevealAttached::RevealAttached(QObject *parent)
     : QObject(parent)
     , m_item(qobject_cast<QQuickItem *>(parent))
 {
+    // the two animations are made once and reused. rebuilding them as an
+    // animation ends deleted the group's children from inside the group's own
+    // state change, which left it stepping over freed animations
+    m_fade = new QPropertyAnimation(m_item, "opacity");
+    m_animation.addAnimation(m_fade);
+    m_grow = new QPropertyAnimation(m_item, "scale");
+    m_animation.addAnimation(m_grow);
+
+    // queued, so hiding the item runs once the group has finished changing
+    // state, and a reveal that starts meanwhile is not cut short by it
     connect(&m_animation, &QAbstractAnimation::finished, this, [this] {
-        if (m_item && !m_shown) {
+        if (m_item && !m_shown && m_animation.state() == QAbstractAnimation::Stopped) {
             m_item->setVisible(false);
         }
-    });
+    }, Qt::QueuedConnection);
 }
 
 void RevealAttached::setScaleFrom(qreal scale)
@@ -72,8 +82,10 @@ void RevealAttached::setShown(bool shown)
 
 void RevealAttached::animate(bool shown)
 {
+    if (!m_item || !m_fade || !m_grow) {
+        return;
+    }
     m_animation.stop();
-    m_animation.clear();
 
     if (shown && !m_item->isVisible()) {
         m_item->setOpacity(0);
@@ -81,22 +93,18 @@ void RevealAttached::animate(bool shown)
     }
     m_item->setVisible(true);
 
-    auto *fade = new QPropertyAnimation(m_item, "opacity");
-    fade->setEndValue(shown ? 1.0 : 0.0);
-    fade->setDuration(shown ? std::min(200, m_duration) : std::min(150, m_duration));
-    fade->setEasingCurve(shown ? QEasingCurve::OutCubic : QEasingCurve::InCubic);
-    m_animation.addAnimation(fade);
+    m_fade->setEndValue(shown ? 1.0 : 0.0);
+    m_fade->setDuration(shown ? std::min(200, m_duration) : std::min(150, m_duration));
+    m_fade->setEasingCurve(shown ? QEasingCurve::OutCubic : QEasingCurve::InCubic);
 
-    auto *grow = new QPropertyAnimation(m_item, "scale");
-    grow->setEndValue(shown ? 1.0 : m_scaleFrom);
-    grow->setDuration(shown ? m_duration : std::min(170, m_duration));
+    m_grow->setEndValue(shown ? 1.0 : m_scaleFrom);
+    m_grow->setDuration(shown ? m_duration : std::min(170, m_duration));
     QEasingCurve spring(shown ? (m_overshoot > 0 ? QEasingCurve::OutBack : QEasingCurve::OutCubic) : QEasingCurve::InCubic);
     if (shown && m_overshoot > 0) {
         spring.setOvershoot(m_overshoot);
     }
-    grow->setEasingCurve(spring);
+    m_grow->setEasingCurve(spring);
 
-    m_animation.addAnimation(grow);
     m_animation.start();
 }
 
