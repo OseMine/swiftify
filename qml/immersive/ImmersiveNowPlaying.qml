@@ -20,8 +20,18 @@ Item {
     /// round inside the ring, or round on its own with visualizers off
     readonly property bool roundCover: showsRing || ((!Settings.visualizersEnabled || !Settings.immersiveVisualizer) && Settings.roundArtwork)
     readonly property bool compactHorizontal: layout.contentHeight < 460
-    property real artworkSize: compactHorizontal ? Math.min(240, Math.max(0, layout.contentHeight - 16), width * 0.36)
-                                                 : layout.artworkSize
+    /// the cover on its own, grown to the largest square the player holds
+    /// (issue 86's "maximize album covers")
+    readonly property bool expanded: UiState.coverExpanded
+    /// the song, its seek line, controls and volume: what the grown cover
+    /// gives up its room for
+    readonly property bool detailsShown: !expanded
+    /// true while the cover is growing or shrinking, so its size eases then
+    /// and snaps on a window resize
+    property bool coverResizing: false
+    property real artworkSize: expanded ? Math.max(0, Math.min(width, layout.contentHeight))
+                                        : compactHorizontal ? Math.min(240, Math.max(0, layout.contentHeight - 16), width * 0.36)
+                                                            : layout.artworkSize
     readonly property real innerSize: showsRing ? artworkSize * ring.innerRadiusRatio : artworkSize
     readonly property real artworkRadius: Math.max(18, innerSize * 0.055)
     /// the song the title and artist show, which over a crossfade changes
@@ -81,25 +91,40 @@ Item {
     }
 
     Behavior on artworkSize {
-        enabled: root.animateLayout
+        enabled: root.animateLayout || root.coverResizing
         ElementMove {}
     }
 
-    implicitWidth: compactHorizontal ? artworkSize + 24 + Math.max(220, details.implicitWidth)
-                                     : Math.max(artworkSize, metadataWidth, transport.implicitWidth)
+    Timer {
+        id: coverResize
+        interval: Appearance.motion(500)
+        onTriggered: root.coverResizing = false
+    }
+
+    function toggleExpanded() {
+        root.coverResizing = !Appearance.performanceMode
+        coverResize.restart()
+        UiState.coverExpanded = !UiState.coverExpanded
+    }
+
+    implicitWidth: compactHorizontal && !expanded ? artworkSize + 24 + Math.max(220, details.implicitWidth)
+                                                  : Math.max(artworkSize, metadataWidth, transport.implicitWidth)
     implicitHeight: content.implicitHeight
 
     Item {
         id: content
         width: root.width
-        implicitHeight: root.compactHorizontal ? Math.max(root.artworkSize, details.implicitHeight)
-                                                : root.artworkSize + root.layout.contentSpacing + details.implicitHeight
+        implicitHeight: root.expanded ? root.artworkSize
+                                      : root.compactHorizontal
+                                        ? Math.max(root.artworkSize, root.detailsShown ? details.implicitHeight : 0)
+                                        : root.artworkSize + (root.detailsShown
+                                                              ? root.layout.contentSpacing + details.implicitHeight : 0)
 
         Item {
             id: artwork
             objectName: "immersiveArtwork"
-            x: root.compactHorizontal ? 0 : (content.width - width) / 2
-            y: root.compactHorizontal ? (content.height - height) / 2 : 0
+            x: root.compactHorizontal && !root.expanded ? 0 : (content.width - width) / 2
+            y: root.compactHorizontal || root.expanded ? (content.height - height) / 2 : 0
             width: root.artworkSize
             height: root.artworkSize
             // a new song's cover pops in with a spring, or sweeps in over a crossfade
@@ -176,6 +201,38 @@ Item {
                 anchors.centerIn: parent
             }
 
+            HoverHandler {
+                id: artHover
+                cursorShape: Player.hasSong ? Qt.PointingHandCursor : Qt.ArrowCursor
+            }
+
+            // the cover grows over the song's text and controls, and goes
+            // back to them on a second press. it is there while the pointer
+            // is, and stays while the cover holds the player on its own
+            IconButton {
+                objectName: "coverExpandButton"
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 8
+                z: 2
+                scheme: root.scheme
+                symbol: root.expanded ? "close_fullscreen" : "open_in_full"
+                size: 36
+                iconSize: 20
+                iconColor: "white"
+                colBackground: Qt.rgba(0, 0, 0, 0.32)
+                colBackgroundHover: Qt.rgba(0, 0, 0, 0.55)
+                tooltip: root.expanded ? qsTr("Restore cover") : qsTr("Maximize cover")
+                opacity: artHover.hovered || root.expanded ? 1 : 0
+                visible: opacity > 0
+                onClicked: root.toggleExpanded()
+            }
+
+            TapHandler {
+                acceptedButtons: Qt.LeftButton
+                acceptedModifiers: Qt.NoModifier
+                onDoubleTapped: root.toggleExpanded()
+            }
             TapHandler {
                 acceptedButtons: Qt.LeftButton
                 acceptedModifiers: Qt.AltModifier
@@ -186,6 +243,7 @@ Item {
         Column {
             id: details
             objectName: "immersiveDetails"
+            visible: root.detailsShown
             x: root.compactHorizontal ? root.artworkSize + 24 : 0
             y: root.compactHorizontal ? (content.height - height) / 2 : root.artworkSize + root.layout.contentSpacing
             width: root.compactHorizontal ? Math.max(0, content.width - x) : content.width

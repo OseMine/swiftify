@@ -76,6 +76,11 @@ FocusScope {
         if (next === panel && !swap.running && !leavePanel.running) {
             return
         }
+        // a panel needs the room the grown cover took: the song comes back
+        // with it, and the panel slides in beside that
+        if (next.length > 0) {
+            UiState.coverExpanded = false
+        }
         pendingPanel = next
         pendingRemembers = remembers
         swap.stop()
@@ -177,7 +182,13 @@ FocusScope {
             Player.togglePlayback()
             break
         case Qt.Key_Escape:
-            root.closeRequested()
+            // the grown cover is a layer of its own: escape leaves it before
+            // it leaves the player
+            if (UiState.coverExpanded) {
+                UiState.coverExpanded = false
+            } else {
+                root.closeRequested()
+            }
             break
         case Qt.Key_Left:
             Player.seekBy(-10000)

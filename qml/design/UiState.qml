@@ -10,6 +10,10 @@ QtObject {
     id: root
 
     property bool immersiveOpen: false
+    /// the immersive player's cover alone, grown to fill the room its song's
+    /// text and controls leave. it goes back to them when the player closes,
+    /// or when a panel opens beside it
+    property bool coverExpanded: false
 
     /// music plays and the window shows it: what the squiggles and shapes
     /// that turn wait for. the main window sets it.
