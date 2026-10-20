@@ -37,9 +37,9 @@ OutFile "${OUT_FILE}"
 BrandingText "${APP_NAME} ${APP_VERSION}"
 
 ; a per-user install, so windows shows no administrator prompt and the
-; uninstaller needs no elevation either
+; uninstaller needs no elevation either. SetShellVarContext is an instruction,
+; so each section sets it before it touches $DESKTOP or $SMPROGRAMS
 RequestExecutionLevel user
-SetShellVarContext current
 
 InstallDir "$LOCALAPPDATA\Programs\Swiftify"
 InstallDirRegKey HKCU "Software\Swiftify" "InstallDir"
@@ -74,6 +74,8 @@ VIAddVersionKey "LegalCopyright" "${APP_PUBLISHER}"
 !insertmacro MUI_LANGUAGE "English"
 
 Section "Swiftify" InstallSection
+    SetShellVarContext current
+
     ; the app is running from the folder being replaced: it has to go first,
     ; or its libraries are locked (the readme asks for this too)
     nsExec::Exec 'taskkill /IM "${APP_EXE}" /F'
@@ -106,10 +108,13 @@ Section "Swiftify" InstallSection
 SectionEnd
 
 Section "Desktop shortcut" DesktopShortcut
+    SetShellVarContext current
     CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\bin\${APP_EXE}"
 SectionEnd
 
 Section "Uninstall"
+    SetShellVarContext current
+
     nsExec::Exec 'taskkill /IM "${APP_EXE}" /F'
     Pop $0
 

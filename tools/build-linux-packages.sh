@@ -97,9 +97,11 @@ if wants rpm; then
     RPMROOT="$WORK/rpmbuild"
     rm -rf "${RPMROOT:?}"
     mkdir -p "$RPMROOT"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-    # every path the appdir holds, so nothing is left unpackaged
+    # every path the appdir holds, so nothing is left unpackaged. only files
+    # and links: rpm adds the folders they sit in itself, and listing those
+    # too has it warn about every one of them twice
     FILES="$WORK/rpm-files.list"
-    ( cd "$APPDIR" && find usr -mindepth 1 | LC_ALL=C sort | sed 's|^|/|' ) > "$FILES"
+    ( cd "$APPDIR" && find usr -mindepth 1 \( -type f -o -type l \) | LC_ALL=C sort | sed 's|^|/|' ) > "$FILES"
     cat > "$RPMROOT/SPECS/swiftify.spec" <<EOF
 %global debug_package %{nil}
 %define _build_id_links none
@@ -142,7 +144,11 @@ if wants appimage; then
     if [[ -z "$LINUXDEPLOY" ]]; then
         LINUXDEPLOY="$SOURCE/build-linux-tarball/tools/linuxdeploy-x86_64.AppImage"
     fi
-    [[ -x "$LINUXDEPLOY" ]] || fail "no linuxdeploy at $LINUXDEPLOY; build the tarball first or pass --linuxdeploy"
+    # the packer runs from its own folder below, so a relative path would be
+    # looked for from there rather than from where it was named
+    [[ -f "$LINUXDEPLOY" ]] || fail "no linuxdeploy at $LINUXDEPLOY; build the tarball first or pass --linuxdeploy"
+    LINUXDEPLOY="$(cd "$(dirname "$LINUXDEPLOY")" && pwd)/$(basename "$LINUXDEPLOY")"
+    [[ -x "$LINUXDEPLOY" ]] || fail "linuxdeploy at $LINUXDEPLOY is not executable"
     mkdir -p "$WORK/appimage"
     rm -f "$WORK/appimage"/*.AppImage
     # the appdir is already deployed, so this only packs it

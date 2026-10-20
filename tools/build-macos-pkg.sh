@@ -66,8 +66,9 @@ pkgbuild --root "$ROOT" \
     "$COMPONENT"
 
 # the payload has to hold the app and nothing else, and the bundle in it has
-# to still verify: pkgbuild can flatten a symlinked framework
-pkgutil --payload-files "$COMPONENT" | grep -qx 'Applications/Swiftify.app/Contents/MacOS/swiftify' \
+# to still verify: pkgbuild can flatten a symlinked framework. pkgutil prints
+# the paths payload-relative on some systems and absolute on others
+pkgutil --payload-files "$COMPONENT" | grep -Eq '(^|/)Applications/Swiftify\.app/Contents/MacOS/swiftify$' \
     || fail "the pkg does not carry the app"
 codesign --verify --deep --strict "$ROOT/Applications/Swiftify.app" \
     || fail "the app in the pkg does not verify"
