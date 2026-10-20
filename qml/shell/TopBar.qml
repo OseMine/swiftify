@@ -50,7 +50,11 @@ Item {
     }
     TapHandler {
         acceptedButtons: Qt.LeftButton
-        onDoubleTapped: root.window.visibility === Window.Maximized ? root.window.showNormal() : root.window.showMaximized()
+        // a full screen window is already as big as it goes: its title bar
+        // gives the screen back rather than asking to be maximised in it
+        onDoubleTapped: root.window.visibility === Window.FullScreen || root.window.visibility === Window.Maximized
+                        ? root.window.showNormal()
+                        : root.window.showMaximized()
     }
 
     Item {

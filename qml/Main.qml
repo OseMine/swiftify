@@ -16,10 +16,15 @@ ApplicationWindow {
     readonly property real layoutWidth: width / zoom
     readonly property real layoutHeight: height / zoom
     readonly property real effectiveSidebarWidth: Math.max(132, Math.min(sidebarWidth, layoutWidth * 0.28))
-    readonly property bool inAppWindowControls: !App.macOS && (App.windows ? !Settings.nativeTitleBar : Settings.showWindowControls)
+    /// the whole screen, with none of the frame or buttons a maximised window
+    /// keeps. the window buttons are the compositor's business in full screen
+    readonly property bool fullScreen: visibility === Window.FullScreen
+    readonly property bool inAppWindowControls: !App.macOS && !fullScreen
+                                                 && (App.windows ? !Settings.nativeTitleBar : Settings.showWindowControls)
     /// the strip the traffic lights sit in, kept clear above the sidebar
-    readonly property real titleBarInset: App.macOS ? Math.max(28, shell.SafeArea.margins.top)
-                                                 : inAppWindowControls && !Settings.windowControlsOnRight ? 36 : 0
+    readonly property real titleBarInset: fullScreen ? 0
+                                         : App.macOS ? Math.max(28, shell.SafeArea.margins.top)
+                                         : inAppWindowControls && !Settings.windowControlsOnRight ? 36 : 0
 
     width: 1280
     height: 780
@@ -79,6 +84,16 @@ ApplicationWindow {
         window.show()
         window.raise()
         window.requestActivate()
+    }
+
+    /// the frame goes away and the page fills the screen; asking again puts
+    /// the window back where it was, not merely un-maximised
+    function toggleFullScreen() {
+        if (window.fullScreen) {
+            window.showNormal()
+        } else {
+            window.showFullScreen()
+        }
     }
 
     // closing the window is not quitting: it hides, the music plays on, and
@@ -243,7 +258,8 @@ ApplicationWindow {
                 onActiveChanged: if (active) window.startSystemMove()
             }
             TapHandler {
-                onDoubleTapped: window.visibility === Window.Maximized ? window.showNormal() : window.showMaximized()
+                onDoubleTapped: window.fullScreen || window.visibility === Window.Maximized ? window.showNormal()
+                                                                                            : window.showMaximized()
             }
         }
 
@@ -510,6 +526,9 @@ ApplicationWindow {
     Connections {
         target: UiState
         function onImmersiveOpenChanged() {
+            if (!UiState.immersiveOpen) {
+                UiState.coverExpanded = false
+            }
             if (UiState.immersiveOpen) {
                 // with no shapes it opens through a plain circle
                 window.revealShape = Settings.noShapes ? "circle"
@@ -785,6 +804,13 @@ ApplicationWindow {
                     onTriggered: window.reveal()
                 }
                 Platform.MenuItem {
+                    text: window.fullScreen ? qsTr("Leave full screen") : qsTr("Full screen")
+                    onTriggered: {
+                        window.reveal()
+                        window.toggleFullScreen()
+                    }
+                }
+                Platform.MenuItem {
                     text: Player.playing ? qsTr("Pause") : qsTr("Play")
                     enabled: Player.hasSong
                     onTriggered: Player.togglePlayback()
@@ -853,18 +879,22 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Alt+R"; enabled: !App.macOS && Player.hasSong; onActivated: Player.cycleRepeatMode() }
     Shortcut { sequence: "Ctrl+Alt+G"; onActivated: UiState.showCatchphrase("test") }
     Shortcut { sequence: "Ctrl+,"; enabled: !App.macOS; onActivated: UiState.settingsRequested() }
+    // the mac menu bar carries this one, with its ctrl-cmd-f
+    Shortcut { sequence: "F11"; enabled: !App.macOS; onActivated: window.toggleFullScreen() }
 
     // StandardKey.Back is "Alt+Left" both on Windows and Linux. Both Shortcuts thus have the
     // same key, which results in neither acting (see "Ctrl+..." Shortcuts)
     Shortcut { sequence: "Alt+Left"; enabled: App.macOS; onActivated: Library.goBack() }
     Shortcut { sequences: [StandardKey.Back]; enabled: !App.macOS; onActivated: Library.goBack() }
-    // escape closes the page and goes back to the one before. an open menu
-    // or dialog takes it first, the search field clears itself with it, and
-    // the immersive player closes on its own
+    // escape closes the page and goes back to the one before, and leaves full
+    // screen first of all. an open menu or dialog takes it first, the search
+    // field clears itself with it, and the immersive player closes on its own,
+    // so this stands down while that is open rather than fight it for the key
     Shortcut {
         sequence: "Escape"
-        enabled: Library.canGoBack && !UiState.immersiveOpen
-        onActivated: Library.goBack()
+        enabled: !UiState.immersiveOpen && (window.fullScreen || Library.canGoBack)
+        onActivated: if (window.fullScreen) window.showNormal()
+                     else Library.goBack()
     }
     TapHandler {
         acceptedButtons: Qt.BackButton
@@ -885,7 +915,7 @@ ApplicationWindow {
     Loader {
         active: App.nativeMenuBar
         sourceComponent: MacMenuBar {
-            window: window
+            appWindow: window
             onFindRequested: topBar.focusSearch()
             onCatalogueSearchRequested: topBar.openCatalogueSearch()
             // the settings first, if they are open over the window
@@ -899,6 +929,7 @@ ApplicationWindow {
             }
             onMinimizeRequested: window.showMinimized()
             onZoomRequested: window.visibility === Window.Maximized ? window.showNormal() : window.showMaximized()
+            onFullScreenRequested: window.toggleFullScreen()
             onShowWindowRequested: window.reveal()
         }
     }

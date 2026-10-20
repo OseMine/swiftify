@@ -10,10 +10,15 @@ import Swiftify
 Platform.MenuBar {
     id: root
 
+    /// the window the menu acts on: its full screen item names what it would
+    /// do, enter or leave
+    property var appWindow
+
     signal findRequested()
     signal closeWindowRequested()
     signal minimizeRequested()
     signal zoomRequested()
+    signal fullScreenRequested()
     signal showWindowRequested()
     signal catalogueSearchRequested()
 
@@ -225,6 +230,13 @@ Platform.MenuBar {
         Platform.MenuItem {
             text: qsTr("Zoom")
             onTriggered: root.zoomRequested()
+        }
+        Platform.MenuItem {
+            // the key the mac gives every app for this, ctrl-cmd-f
+            text: root.appWindow && root.appWindow.visibility === Window.FullScreen ? qsTr("Exit Full Screen")
+                                                                                    : qsTr("Enter Full Screen")
+            shortcut: "Ctrl+Meta+F"
+            onTriggered: root.fullScreenRequested()
         }
         Platform.MenuSeparator {}
         Platform.MenuItem {
