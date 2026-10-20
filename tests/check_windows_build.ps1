@@ -18,6 +18,13 @@ try {
 }
 Assert-True $failed 'Native command failures must throw with the exit code.'
 
+# every tooling script has to parse, including the ones this test never runs
+foreach ($file in Get-ChildItem (Join-Path $PSScriptRoot '..\tools') -Filter *.ps1) {
+    $parseErrors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$parseErrors)
+    Assert-True ($parseErrors.Count -eq 0) "$($file.Name) does not parse: $($parseErrors | Select-Object -First 1)"
+}
+
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "swiftify-build-test-$([guid]::NewGuid()) with spaces"
 $originalPath = $env:PATH
 $originalQtRoot = $env:QT_ROOT_DIR

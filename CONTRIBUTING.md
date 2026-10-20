@@ -37,7 +37,7 @@ pinned by hash. on windows use `tools/build-windows.ps1` as the readme says.
 | `tools/shape_atlas` | draws Material 3's shapes into the distance field atlas `MaterialShape` reads, at build time |
 | `third_party/` | material-color-utilities and rounded-polygon-qmljs |
 | `tests/` | Qt Test suites, `bench_frames` and two python checks |
-| `packaging/` | desktop entry, icons, PKGBUILD and the macos Info.plist |
+| `packaging/` | desktop entry, icons, PKGBUILD, the macos Info.plist, and the windows resource script and NSIS installer |
 
 ## Tests
 

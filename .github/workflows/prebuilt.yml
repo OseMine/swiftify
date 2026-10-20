@@ -1,5 +1,6 @@
-# prebuilt windows and linux x86_64 builds and a macos arm64 dmg. a v tag
-# (v0.10.0) builds all three and puts them on a draft release to publish by
+# prebuilt windows, linux and macos builds: a windows zip and installer, a
+# linux tarball, deb, rpm and AppImage, and a macos dmg and pkg. a v tag
+# (v0.10.0) builds all of them and puts them on a draft release to publish by
 # hand. it also runs from the actions tab, and on pull requests that change how
 # the builds are made
 name: prebuilt
@@ -12,8 +13,12 @@ on:
     paths:
       - .github/workflows/prebuilt.yml
       - tools/build-windows.ps1
+      - tools/build-windows-installer.ps1
       - tools/build-linux-tarball.sh
+      - tools/build-linux-packages.sh
       - tools/build-macos-dmg.sh
+      - tools/build-macos-pkg.sh
+      - packaging/windows/**
 
 permissions:
   contents: read
@@ -101,10 +106,22 @@ jobs:
           Compress-Archive -Path "$env:RUNNER_TEMP\${{ steps.version.outputs.name }}"
           -DestinationPath "${{ steps.version.outputs.name }}.zip"
 
+      # nsis is not on the runner image. the installer is per-user, so it asks
+      # for no administrator rights and installs under localappdata
+      - name: installer
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          .\tools\build-windows-installer.ps1 `
+            -Source "$env:RUNNER_TEMP\${{ steps.version.outputs.name }}" `
+            -Out .
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows
-          path: ${{ steps.version.outputs.name }}.zip
+          path: |
+            ${{ steps.version.outputs.name }}.zip
+            ${{ steps.version.outputs.name }}-setup.exe
           if-no-files-found: error
 
   linux:
@@ -145,7 +162,8 @@ jobs:
             libfontconfig1-dev libfreetype-dev libdbus-1-dev \
             libwayland-dev libwayland-egl1 libvulkan1 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
-            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcb-xinput0
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcb-xinput0 \
+            rpm
 
       - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
         with:
@@ -166,10 +184,20 @@ jobs:
           CXXFLAGS: --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/12
         run: ./tools/build-linux-tarball.sh --qt "$QT_ROOT_DIR" --out dist
 
+      # the deb, rpm and AppImage wrap the same deployed tree the tarball does
+      - name: packages (deb, rpm, appimage)
+        run: >
+          ./tools/build-linux-packages.sh --appdir build-linux-tarball/AppDir --out dist
+          --linuxdeploy build-linux-tarball/tools/linuxdeploy-x86_64.AppImage
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
           if-no-files-found: error
 
   macos:
@@ -199,10 +227,16 @@ jobs:
       - name: build
         run: ./tools/build-macos-dmg.sh --qt "$QT_ROOT_DIR" --out dist
 
+      # the same signed bundle the dmg carries, in installer's packaging
+      - name: installer package
+        run: ./tools/build-macos-pkg.sh --app build-macos-dmg/Swiftify.app --out dist
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macos
-          path: dist/*.dmg
+          path: |
+            dist/*.dmg
+            dist/*.pkg
           if-no-files-found: error
 
   release:

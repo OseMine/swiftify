@@ -90,15 +90,28 @@ For more verbose logging run swiftify with `QT_LOGGING_RULES="swiftify.discord.d
 
 ## Prebuilt builds
 
-[releases](https://github.com/shredos67/swiftify/releases) have windows and linux x86_64 builds,
-and a macos dmg for apple silicon.
+[releases](https://github.com/shredos67/swiftify/releases) have windows, linux x86_64 and
+macos apple silicon builds, as installers and as something you unpack yourself.
 
-- **windows.** unzip it anywhere and run `bin\swiftify.exe`.
-- **linux.** unpack it anywhere and run `bin/swiftify`. it brings its own Qt, but needs
+- **windows installer.** run `swiftify-<version>-windows-x86_64-setup.exe`. it installs
+  under your own appdata, so it asks for no administrator rights, and adds a start menu
+  entry and an uninstaller.
+- **windows portable.** unzip it anywhere and run `bin\swiftify.exe`.
+- **linux tarball.** unpack it anywhere and run `bin/swiftify`. it brings its own Qt, but needs
   alsa and libsecret, which pretty much every desktop already has.
-- **macos.** needs macos 14.4 or newer. open the dmg and drag swiftify into applications.
+- **linux deb / rpm.** `sudo apt install ./swiftify-<version>-linux-x86_64.deb`, or
+  `sudo dnf install ./swiftify-<version>-linux-x86_64.rpm`. installed to `/usr`, with the
+  desktop entry and the icons.
+- **linux AppImage.** `chmod +x swiftify-<version>-linux-x86_64.AppImage` and run it.
+- **macos.** needs macos 14.4 or newer. open the dmg and drag swiftify into applications,
+  or run the pkg to install it.
   its signed ad hoc, so the first launch gets blocked, open it anyway from system settings ›
   privacy & security, or run `xattr -dr com.apple.quarantine /Applications/Swiftify.app`.
+
+the installers are built by the `prebuilt` workflow, each from the build it wraps:
+`tools/build-windows-installer.ps1` packages the folder `tools/build-windows.ps1` installed
+into, `tools/build-macos-pkg.sh` the bundle `tools/build-macos-dmg.sh` made, and
+`tools/build-linux-packages.sh` the AppDir `tools/build-linux-tarball.sh` deployed.
 
 ## Building from source
 
