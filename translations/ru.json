@@ -534,5 +534,13 @@
   "Stats from": "Источник статистики",
   "Keep track of what I listen to": "Учитывать, что я слушаю",
   "Export History": "Экспорт истории",
-  "stats.fm reads a public profile by its username, nothing else. the stats from this computer count songs heard for 30 seconds or more (%1 so far), kept only on this computer; their genres come from your Spotify library login.": "stats.fm читает публичный профиль только по имени пользователя. Статистика этого компьютера учитывает треки, прослушанные 30 секунд и дольше (пока %1), и хранится только на этом компьютере; жанры берутся через вход в медиатеку Spotify."
+  "stats.fm reads a public profile by its username, nothing else. the stats from this computer count songs heard for 30 seconds or more (%1 so far), kept only on this computer; their genres come from your Spotify library login.": "stats.fm читает публичный профиль только по имени пользователя. Статистика этого компьютера учитывает треки, прослушанные 30 секунд и дольше (пока %1), и хранится только на этом компьютере; жанры берутся через вход в медиатеку Spotify.",
+  "Full screen": "Полный экран",
+  "Leave full screen": "Выйти из полноэкранного режима",
+  "Enter Full Screen": "Перейти в полноэкранный режим",
+  "Exit Full Screen": "Выйти из полноэкранного режима",
+  "Maximize cover": "Развернуть обложку",
+  "Restore cover": "Свернуть обложку",
+  "Pre-amp": "Предусиление",
+  " dB": " дБ"
 }

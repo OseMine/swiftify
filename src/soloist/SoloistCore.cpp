@@ -850,6 +850,11 @@ QCoro::Task<QString> SoloistCore::artistTopTracksJson(QString artistUri)
     co_return co_await m_fallback->artistTopTracksJson(artistUri);
 }
 
+QCoro::Task<QString> SoloistCore::autoplayJson(QString contextUri, QStringList recentTracks)
+{
+    co_return co_await m_fallback->autoplayJson(contextUri, recentTracks);
+}
+
 void SoloistCore::setStreamQuality(int kbps)
 {
     m_fallback->setStreamQuality(kbps);
@@ -868,6 +873,11 @@ void SoloistCore::setPlaybackShaping(float tempo, float pitchSemitones, bool pre
 void SoloistCore::setEqualizer(const QList<float> &gainsDb)
 {
     m_fallback->setEqualizer(gainsDb);
+}
+
+void SoloistCore::setPreamp(float preampDb)
+{
+    m_fallback->setPreamp(preampDb);
 }
 
 bool SoloistCore::sessionIsValid() const

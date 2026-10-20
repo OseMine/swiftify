@@ -455,6 +455,14 @@ async_call!(
         core.artist_top_tracks_json(artist_uri).await
     }
 );
+async_call!(
+    /// completes with the songs spotify suggests once what played is done, as
+    /// json shaped like the top tracks response. `recent_tracks` is one uri per
+    /// line, the last played first.
+    swiftify_core_autoplay_json(context_uri, recent_tracks) => |core| {
+        core.autoplay_json(context_uri, recent_tracks).await
+    }
+);
 
 /// what a music file's tags say, as json (crate::local::LocalTags), or null
 /// with `*error` set. an embedded cover is written into `artwork_dir`. it
@@ -592,6 +600,7 @@ pub unsafe extern "C" fn swiftify_core_set_audio_cache(
 }
 fallible_call!(swiftify_core_set_playback_shaping(tempo: f32, pitch_semitones: f32, preserves_pitch: bool)
     => |core| core.set_playback_shaping(tempo, pitch_semitones, preserves_pitch));
+fallible_call!(swiftify_core_set_preamp(preamp_db: f32) => |core| core.set_preamp(preamp_db));
 
 /// returns null on success, or an error message to free.
 ///
@@ -757,6 +766,8 @@ mod tests {
 
         assert!(unsafe { swiftify_core_set_volume(core, 0.4) }.is_null());
         assert!((unsafe { swiftify_core_volume(core) } - 0.4).abs() < f32::EPSILON);
+
+        assert!(unsafe { swiftify_core_set_preamp(core, 3.0) }.is_null());
 
         let mut levels = [1.0; 64];
         let count =

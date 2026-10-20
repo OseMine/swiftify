@@ -74,6 +74,10 @@ void swiftify_core_playlist_json(const SwiftifyCore *core, uint64_t request_id,
  * /v1/artists/{id}/top-tracks response. */
 void swiftify_core_artist_top_tracks_json(const SwiftifyCore *core, uint64_t request_id,
                                           const char *artist_uri);
+/* the songs spotify suggests once what played is done, shaped like the top
+ * tracks response. recent_tracks is one uri per line, the last played first. */
+void swiftify_core_autoplay_json(const SwiftifyCore *core, uint64_t request_id,
+                                 const char *context_uri, const char *recent_tracks);
 /* plays a music file of the person's own from anywhere on disk: mp3, flac,
  * ogg vorbis, wav, aiff, or aac or apple lossless in an m4a. */
 void swiftify_core_play_file(const SwiftifyCore *core, uint64_t request_id, const char *path);
@@ -108,6 +112,8 @@ char *swiftify_core_set_audio_cache(const SwiftifyCore *core, const char *path,
 char *swiftify_core_set_playback_shaping(const SwiftifyCore *core, float tempo,
                                          float pitch_semitones, bool preserves_pitch);
 char *swiftify_core_set_equalizer(const SwiftifyCore *core, const float *gains_db, size_t count);
+/* the replaygain pre-amp, in decibels, before the equalizer; applies at once */
+char *swiftify_core_set_preamp(const SwiftifyCore *core, float preamp_db);
 
 bool swiftify_core_session_is_valid(const SwiftifyCore *core);
 bool swiftify_core_audio_output_stalled(const SwiftifyCore *core);

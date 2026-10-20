@@ -300,6 +300,46 @@ private slots:
         QVERIFY(panel->x() >= 0);
     }
 
+    // issue 86: the immersive cover stopped at 380 points however big the
+    // window was. its button grows it over the song and its controls
+    void theCoverGrowsOverTheSongsControls()
+    {
+        Rig rig;
+        rig.playSomething();
+        rig.settings.setPerformanceMode(true);
+        rig.settings.setImmersivePlayerPanel(QStringLiteral("artwork"));
+        const auto player = rig.show(QStringLiteral("ImmersivePlayer"));
+        QVERIFY(player);
+        player->setSize(QSize(1400, 900));
+        Rig::settle();
+        auto *artwork = player->findChild<QQuickItem *>(QStringLiteral("immersiveArtwork"));
+        auto *details = player->findChild<QQuickItem *>(QStringLiteral("immersiveDetails"));
+        auto *expand = player->findChild<QQuickItem *>(QStringLiteral("coverExpandButton"));
+        QVERIFY(artwork && details && expand);
+        QVERIFY(details->isVisible());
+        const qreal resting = artwork->width();
+        QVERIFY(resting > 0);
+
+        QVERIFY(QMetaObject::invokeMethod(expand, "clicked"));
+        Rig::settle();
+        QVERIFY(artwork->width() > resting);
+        QVERIFY(artwork->width() <= player->property("width").toReal() + 1);
+        QVERIFY(!details->isVisible());
+
+        QVERIFY(QMetaObject::invokeMethod(expand, "clicked"));
+        Rig::settle();
+        QCOMPARE(artwork->width(), resting);
+        QVERIFY(details->isVisible());
+
+        // a panel needs the room back before it slides in
+        QVERIFY(QMetaObject::invokeMethod(expand, "clicked"));
+        Rig::settle();
+        QVERIFY(!details->isVisible());
+        QMetaObject::invokeMethod(player.get(), "swapPanel", QStringLiteral("queue"), true);
+        Rig::settle();
+        QVERIFY(details->isVisible());
+    }
+
     /// lyrics scrolled up past the panel are faded out of sight, and the
     /// buttons over them take the click, not the lines
     void scrolledLyricsLeaveTheTopBarClickable()
@@ -2114,6 +2154,35 @@ private slots:
                      qPrintable(QStringLiteral("%1 of %2").arg(content->width()).arg(content->implicitWidth())));
     }
 
+    // issue 43: a quiet master could only be lifted band by band. the pre-amp
+    // moves everything at once, and stays where it was put
+    void theSoundPanelCarriesAPreamp()
+    {
+        Rig rig;
+        rig.settings.setPerformanceMode(true);
+        const auto panel = rig.show(QStringLiteral("SoundPanel"));
+        QVERIFY(panel);
+        auto *slider = panel->findChild<QQuickItem *>(QStringLiteral("preampSlider"));
+        QVERIFY(slider);
+        QCOMPARE(rig.sound.preamp(), 0.0);
+        QCOMPARE(slider->property("value").toDouble(), 0.0);
+
+        slider->setProperty("value", 6.0);
+        QVERIFY(QMetaObject::invokeMethod(slider, "moved"));
+        QTRY_COMPARE(rig.sound.preamp(), 6.0);
+        QCOMPARE(rig.settings.value(QStringLiteral("audioPreampDecibels")).toDouble(), 6.0);
+        QVERIFY(!rig.sound.isNeutral());
+
+        // the fader stops at the twelve decibels the core takes
+        rig.sound.setPreamp(40);
+        QCOMPARE(rig.sound.preamp(), 12.0);
+        QTRY_COMPARE(slider->property("value").toDouble(), 12.0);
+
+        rig.sound.reset();
+        QCOMPARE(rig.sound.preamp(), 0.0);
+        QVERIFY(rig.sound.isNeutral());
+    }
+
     /// the presets menu: what can be done with the sound first, the presets
     /// saved in a menu of their own, then the built-in ones after a divider,
     /// however often the list changes after the menu is built
@@ -3114,6 +3183,40 @@ private slots:
         Rig::settle();
         QCOMPARE(switchItem->isEnabled(), true);
         QCOMPARE(switchItem->opacity(), 1.0);
+    }
+
+    // issue 96: the window had a maximise but no full screen, so the page
+    // could never fill the screen the way the immersive player does
+    void fullScreenTakesTheFrameAway()
+    {
+        Rig rig;
+        rig.settings.setPerformanceMode(true);
+        rig.settings.setShowWindowControls(true);
+        QQmlComponent component(&rig.engine, QUrl(QStringLiteral("qrc:/qt/qml/Swiftify/qml/Main.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *window = qobject_cast<QQuickWindow *>(object.get());
+        QVERIFY(window);
+        window->setWidth(1280);
+        auto *controls = window->findChild<QQuickItem *>(QStringLiteral("appWindowControls"));
+        QVERIFY(controls);
+        Rig::settle();
+        const qreal inset = object->property("titleBarInset").toReal();
+
+        QVERIFY(QMetaObject::invokeMethod(object.get(), "toggleFullScreen"));
+        QTRY_COMPARE(window->visibility(), QWindow::FullScreen);
+        QVERIFY(object->property("fullScreen").toBool());
+        // the frame's own buttons and the strip they sit in go away with it
+        QCOMPARE(object->property("titleBarInset").toReal(), 0.0);
+        QVERIFY(!controls->isVisible());
+
+        QVERIFY(QMetaObject::invokeMethod(object.get(), "toggleFullScreen"));
+        QTRY_COMPARE(window->visibility(), QWindow::Windowed);
+        QVERIFY(!object->property("fullScreen").toBool());
+        QCOMPARE(object->property("titleBarInset").toReal(), inset);
+        if (!rig.app.isMacOS()) {
+            QVERIFY(controls->isVisible());
+        }
     }
 
     void clickingSelectedSortOptionReversesOrder()

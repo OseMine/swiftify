@@ -270,6 +270,42 @@ Item {
                 }
             }
 
+            // replaygain pre-amp: lifts or drops everything before the bands,
+            // so a quiet master can be raised without moving the curve
+            Item {
+                width: parent.width
+                height: 24
+
+                StyledText {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("Pre-amp")
+                    font.pixelSize: Appearance.fontSize.smaller
+                    color: root.secondaryText
+                }
+                StyledText {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (Sound.preamp > 0 ? "+" : "") + Sound.preamp.toFixed(1) + qsTr(" dB")
+                    tabularNumbers: true
+                    font.pixelSize: Appearance.fontSize.smaller
+                    font.weight: Font.DemiBold
+                    color: Math.abs(Sound.preamp) > 0.001 ? root.accent : root.secondaryText
+                }
+            }
+            StyledSlider {
+                objectName: "preampSlider"
+                width: parent.width
+                scheme: root.scheme
+                from: -12
+                to: 12
+                stepSize: 0.5
+                value: Sound.preamp
+                trackThickness: 10
+                snapMode: T.Slider.SnapAlways
+                onMoved: Sound.preamp = Math.round(value * 2) / 2
+            }
+
             Item {
                 width: parent.width
                 height: 96

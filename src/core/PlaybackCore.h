@@ -48,6 +48,10 @@ public:
     /// an artist's top songs read through the session, shaped like the web
     /// api's top tracks response, which spotify took away
     virtual QCoro::Task<QString> artistTopTracksJson(QString artistUri) = 0;
+    /// the songs spotify suggests once a queue runs out, shaped like the top
+    /// tracks response. `recentTracks` is last played first.
+    virtual QCoro::Task<QString> autoplayJson(QString contextUri,
+                                              QStringList recentTracks) = 0;
 
     virtual void play() = 0;
     virtual void pause() = 0;
@@ -60,6 +64,9 @@ public:
     virtual void setAudioCache(const QString &path, qint64 limitBytes) = 0;
     virtual void setPlaybackShaping(float tempo, float pitchSemitones, bool preservesPitch) = 0;
     virtual void setEqualizer(const QList<float> &gainsDb) = 0;
+    /// the replaygain pre-amp, in decibels, applied before the equalizer to
+    /// streaming and file playback alike
+    virtual void setPreamp(float preampDb) = 0;
 
     virtual bool sessionIsValid() const = 0;
     virtual bool audioOutputStalled() const = 0;

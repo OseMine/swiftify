@@ -229,6 +229,15 @@ QCoro::Task<QString> RustCore::artistTopTracksJson(QString artistUri)
     co_return co_await request([&](quint64 id) { swiftify_core_artist_top_tracks_json(m_core, id, uri.constData()); });
 }
 
+QCoro::Task<QString> RustCore::autoplayJson(QString contextUri, QStringList recentTracks)
+{
+    const QByteArray context = contextUri.toUtf8();
+    const QByteArray recent = recentTracks.join(u'\n').toUtf8();
+    co_return co_await request([&](quint64 id) {
+        swiftify_core_autoplay_json(m_core, id, context.constData(), recent.constData());
+    });
+}
+
 void RustCore::play() { throwIfError(swiftify_core_play(m_core)); }
 void RustCore::pause() { throwIfError(swiftify_core_pause(m_core)); }
 void RustCore::seek(quint32 positionMs) { throwIfError(swiftify_core_seek(m_core, positionMs)); }
@@ -255,6 +264,11 @@ void RustCore::setPlaybackShaping(float tempo, float pitchSemitones, bool preser
 void RustCore::setEqualizer(const QList<float> &gainsDb)
 {
     throwIfError(swiftify_core_set_equalizer(m_core, gainsDb.constData(), size_t(gainsDb.size())));
+}
+
+void RustCore::setPreamp(float preampDb)
+{
+    throwIfError(swiftify_core_set_preamp(m_core, preampDb));
 }
 
 bool RustCore::sessionIsValid() const { return swiftify_core_session_is_valid(m_core); }

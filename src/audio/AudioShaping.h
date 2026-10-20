@@ -34,6 +34,7 @@ class AudioShaping : public QObject {
     Q_PROPERTY(QStringList bandLabels READ bandLabels CONSTANT FINAL)
     Q_PROPERTY(QList<qreal> gains READ gains NOTIFY gainsChanged FINAL)
     Q_PROPERTY(bool equalizerEnabled READ isEqualizerEnabled WRITE setEqualizerEnabled NOTIFY equalizerEnabledChanged FINAL)
+    Q_PROPERTY(double preamp READ preamp WRITE setPreamp NOTIFY shapingChanged FINAL)
     Q_PROPERTY(double tempo READ tempo WRITE setTempo NOTIFY shapingChanged FINAL)
     Q_PROPERTY(double pitch READ pitch WRITE setPitch NOTIFY shapingChanged FINAL)
     Q_PROPERTY(bool preservesPitch READ preservesPitch WRITE setPreservesPitch NOTIFY shapingChanged FINAL)
@@ -56,6 +57,8 @@ public:
     QList<qreal> gains() const { return m_gains; }
     bool isEqualizerEnabled() const { return m_equalizerEnabled; }
     void setEqualizerEnabled(bool enabled);
+    double preamp() const { return m_preamp; }
+    void setPreamp(double preampDb);
     double tempo() const { return m_tempo; }
     void setTempo(double tempo);
     double pitch() const { return m_pitch; }
@@ -88,6 +91,7 @@ signals:
 private:
     void setGains(const QList<double> &gains);
     void applyEqualizer();
+    void applyPreamp();
     void applyShaping();
     void storePresets();
     QList<EqualizerPreset> allPresets() const;
@@ -97,6 +101,7 @@ private:
     QList<qreal> m_frequencies;
     QList<double> m_gains;
     bool m_equalizerEnabled = true;
+    double m_preamp = 0;
     double m_tempo = 1;
     double m_pitch = 0;
     bool m_preservesPitch = true;

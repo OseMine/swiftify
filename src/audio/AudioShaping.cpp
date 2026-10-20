@@ -22,6 +22,7 @@ AudioShaping *s_instance = nullptr;
 
 const QString kGainsKey = QStringLiteral("audioEqualizerGains");
 const QString kEnabledKey = QStringLiteral("audioEqualizerEnabled");
+const QString kPreampKey = QStringLiteral("audioPreampDecibels");
 const QString kPresetsKey = QStringLiteral("audioEqualizerPresets");
 const QString kTempoKey = QStringLiteral("audioPlaybackTempo");
 const QString kPitchKey = QStringLiteral("audioPlaybackPitch");
@@ -103,6 +104,7 @@ AudioShaping::AudioShaping(PlaybackCore *core, Settings *settings, SpotifySessio
         }
     }
     m_equalizerEnabled = m_settings->value(kEnabledKey, true).toBool();
+    m_preamp = std::clamp(m_settings->value(kPreampKey, 0.0).toDouble(), -kMaximumGain, kMaximumGain);
     m_tempo = m_settings->value(kTempoKey, 1.0).toDouble();
     m_pitch = m_settings->value(kPitchKey, 0.0).toDouble();
     m_preservesPitch = m_settings->value(kPreservesPitchKey, true).toBool();
@@ -189,7 +191,7 @@ bool AudioShaping::isFlat() const
 
 bool AudioShaping::isNeutral() const
 {
-    return isFlat() && std::abs(m_tempo - 1) < 0.001 && std::abs(m_pitch) < 0.001;
+    return isFlat() && std::abs(m_preamp) < 0.001 && std::abs(m_tempo - 1) < 0.001 && std::abs(m_pitch) < 0.001;
 }
 
 void AudioShaping::setGains(const QList<double> &gains)
@@ -223,6 +225,19 @@ void AudioShaping::setEqualizerEnabled(bool enabled)
     m_settings->setValue(kEnabledKey, enabled);
     applyEqualizer();
     emit equalizerEnabledChanged();
+}
+
+void AudioShaping::setPreamp(double preampDb)
+{
+    preampDb = std::clamp(preampDb, -kMaximumGain, kMaximumGain);
+    if (preampDb == m_preamp) {
+        return;
+    }
+    m_preamp = preampDb;
+    m_settings->setValue(kPreampKey, preampDb);
+    applyPreamp();
+    emit shapingChanged();
+    emit neutralChanged();
 }
 
 void AudioShaping::setTempo(double tempo)
@@ -318,6 +333,7 @@ void AudioShaping::storePresets()
 void AudioShaping::reset()
 {
     setGains(QList<double>(m_frequencies.size(), 0.0));
+    setPreamp(0);
     setTempo(1);
     setPitch(0);
 }
@@ -325,6 +341,7 @@ void AudioShaping::reset()
 void AudioShaping::apply()
 {
     applyEqualizer();
+    applyPreamp();
     applyShaping();
 }
 
@@ -338,6 +355,16 @@ void AudioShaping::applyEqualizer()
     }
     try {
         m_core->setEqualizer(gains);
+    } catch (const SpotifyError &) {
+    }
+}
+
+void AudioShaping::applyPreamp()
+{
+    // the pre-amp is not bypassed with the equalizer: it is the level the
+    // track's own normalisation is lifted or dropped by, and stands alone
+    try {
+        m_core->setPreamp(float(m_preamp));
     } catch (const SpotifyError &) {
     }
 }

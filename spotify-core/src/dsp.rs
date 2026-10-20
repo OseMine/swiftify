@@ -21,10 +21,16 @@ pub(crate) const EQ_FREQUENCIES: [f32; EQ_BAND_COUNT] =
 /// wide enough that five bands cover the spectrum without gaps between them.
 const EQ_Q: f32 = 0.9;
 pub(crate) const MAX_GAIN_DB: f32 = 12.0;
+/// the replaygain pre-amp's room either way. spotify's own stops at plus or
+/// minus 12, and so does the equalizer here.
+pub(crate) const MAX_PREAMP_DB: f32 = 12.0;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) struct DspSettings {
     pub gains_db: [f32; EQ_BAND_COUNT],
+    /// applies to everything that plays, before the equalizer: the pre-amp
+    /// from the replaygain controls
+    pub preamp_db: f32,
     /// duration factor: 0.5 plays the track in twice the time.
     pub tempo: f32,
     pub pitch_semitones: f32,
@@ -37,6 +43,7 @@ impl Default for DspSettings {
     fn default() -> Self {
         Self {
             gains_db: [0.0; EQ_BAND_COUNT],
+            preamp_db: 0.0,
             tempo: 1.0,
             pitch_semitones: 0.0,
             preserves_pitch: true,
@@ -52,6 +59,11 @@ impl DspSettings {
                 *gain = 0.0;
             }
         }
+        self.preamp_db = if self.preamp_db.is_finite() {
+            self.preamp_db.clamp(-MAX_PREAMP_DB, MAX_PREAMP_DB)
+        } else {
+            0.0
+        };
         self.tempo = if self.tempo.is_finite() {
             self.tempo.clamp(0.5, 2.0)
         } else {
@@ -67,6 +79,15 @@ impl DspSettings {
 
     fn equalizes(&self) -> bool {
         self.gains_db.iter().any(|gain| gain.abs() > 0.01)
+    }
+
+    fn preamplifies(&self) -> bool {
+        self.preamp_db.abs() > 0.01
+    }
+
+    /// decibels as the amplitude factor they multiply the samples by.
+    fn preamp_gain(&self) -> f32 {
+        10f32.powf(self.preamp_db / 20.0)
     }
 
     /// how much faster the input is read. multiplies pitch, divides duration.
@@ -158,6 +179,12 @@ impl DspProcessor {
         self.refresh();
 
         let mut samples = samples;
+        if self.settings.preamplifies() {
+            let gain = self.settings.preamp_gain();
+            for sample in &mut samples {
+                *sample *= gain;
+            }
+        }
         if self.settings.equalizes() {
             for (index, sample) in samples.iter_mut().enumerate() {
                 *sample = self.equalizers[index % CHANNELS].process(*sample);
@@ -181,6 +208,12 @@ impl DspProcessor {
     /// slowed down nor sped up, so tempo and pitch are left out
     pub(crate) fn equalize(&mut self, samples: &mut [f32]) {
         self.refresh();
+        if self.settings.preamplifies() {
+            let gain = self.settings.preamp_gain();
+            for sample in samples.iter_mut() {
+                *sample *= gain;
+            }
+        }
         if self.settings.equalizes() {
             for (index, sample) in samples.iter_mut().enumerate() {
                 *sample = self.equalizers[index % CHANNELS].process(*sample);
@@ -531,6 +564,43 @@ mod tests {
     }
 
     #[test]
+    fn the_preamp_turns_the_whole_signal_by_its_decibels() {
+        let shared = SharedDsp::new();
+        shared.set(DspSettings {
+            preamp_db: 6.0,
+            ..DspSettings::default()
+        });
+        let mut processor = DspProcessor::new(shared);
+        let input = tone(440.0, 0.05);
+        let output = processor.process(input.clone());
+        let gain = 10f32.powf(6.0 / 20.0);
+        assert_eq!(output.len(), input.len());
+        for (before, after) in input.iter().zip(&output) {
+            assert!((after - before * gain).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn the_preamp_stays_within_twelve_decibels() {
+        let shared = SharedDsp::new();
+        shared.set(DspSettings {
+            preamp_db: 40.0,
+            ..DspSettings::default()
+        });
+        assert_eq!(shared.get().preamp_db, MAX_PREAMP_DB);
+        shared.set(DspSettings {
+            preamp_db: -40.0,
+            ..DspSettings::default()
+        });
+        assert_eq!(shared.get().preamp_db, -MAX_PREAMP_DB);
+        shared.set(DspSettings {
+            preamp_db: f32::NAN,
+            ..DspSettings::default()
+        });
+        assert_eq!(shared.get().preamp_db, 0.0);
+    }
+
+    #[test]
     fn halving_the_tempo_doubles_the_length_and_keeps_the_pitch() {
         let shared = SharedDsp::new();
         shared.set(settings(0.5, 0.0, true));
@@ -636,6 +706,7 @@ mod tests {
     fn settings_are_clamped_to_something_playable() {
         let wild = DspSettings {
             gains_db: [40.0; EQ_BAND_COUNT],
+            preamp_db: -40.0,
             tempo: 12.0,
             pitch_semitones: f32::NAN,
             preserves_pitch: true,
@@ -643,6 +714,7 @@ mod tests {
         .sanitized();
 
         assert_eq!(wild.gains_db[0], MAX_GAIN_DB);
+        assert_eq!(wild.preamp_db, -MAX_PREAMP_DB);
         assert_eq!(wild.tempo, 2.0);
         assert_eq!(wild.pitch_semitones, 0.0);
     }

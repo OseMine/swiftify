@@ -60,6 +60,7 @@ public:
     QCoro::Task<QString> lyricsJson(QString spotifyUri) override;
     QCoro::Task<QString> playlistJson(QString playlistUri) override;
     QCoro::Task<QString> artistTopTracksJson(QString artistUri) override;
+    QCoro::Task<QString> autoplayJson(QString contextUri, QStringList recentTracks) override;
 
     void play() override;
     void pause() override;
@@ -70,6 +71,7 @@ public:
     void setAudioCache(const QString &path, qint64 limitBytes) override;
     void setPlaybackShaping(float tempo, float pitchSemitones, bool preservesPitch) override;
     void setEqualizer(const QList<float> &gainsDb) override;
+    void setPreamp(float preampDb) override;
 
     bool sessionIsValid() const override;
     bool audioOutputStalled() const override;

@@ -25,6 +25,7 @@ use serde::Serialize;
 use tokio::{sync::watch, time::timeout};
 
 mod artist;
+mod autoplay;
 mod dsp;
 mod file_playback;
 pub mod live_input;
@@ -363,6 +364,10 @@ impl SpotifyCore {
         let player_config = PlayerConfig {
             position_update_interval: Some(Duration::from_secs(1)),
             bitrate: stream_bitrate,
+            // spotify's own "normal" volume level: each track is brought to
+            // the same loudness as it loads, so a quiet master is not lost
+            // between two loud ones (issue 43)
+            normalisation: true,
             ..PlayerConfig::default()
         };
         let player = self.make_player_slot(&session, &mixer, player_config.clone(), true, 1.0);
@@ -426,6 +431,16 @@ impl SpotifyCore {
         for (band, gain) in settings.gains_db.iter_mut().zip(gains_db) {
             *band = gain;
         }
+        self.dsp.set(settings);
+        Ok(())
+    }
+
+    /// the replaygain pre-amp, in decibels, applied before the equalizer to
+    /// streaming and file playback alike. unlike the equalizer this rides on
+    /// top of the track's own gain, so a quiet album can be lifted as a whole.
+    pub fn set_preamp(&self, preamp_db: f32) -> Result<(), String> {
+        let mut settings = self.dsp.get();
+        settings.preamp_db = preamp_db;
         self.dsp.set(settings);
         Ok(())
     }
@@ -517,6 +532,10 @@ impl SpotifyCore {
         let player_config = PlayerConfig {
             position_update_interval: Some(Duration::from_secs(1)),
             bitrate: stream_bitrate,
+            // spotify's own "normal" volume level: each track is brought to
+            // the same loudness as it loads, so a quiet master is not lost
+            // between two loud ones (issue 43)
+            normalisation: true,
             ..PlayerConfig::default()
         };
         let player = self.make_player_slot(&session, &mixer, player_config.clone(), true, 1.0);
@@ -1102,6 +1121,23 @@ impl SpotifyCore {
     /// the web api's top tracks response, which spotify took away
     pub async fn artist_top_tracks_json(&self, artist_uri: String) -> Result<String, String> {
         artist::artist_top_tracks_json(&self.session()?, &artist_uri).await
+    }
+
+    /// the songs spotify suggests after `recent_tracks`, in `context_uri`'s
+    /// company, as json shaped like the top tracks response. `recent_tracks`
+    /// holds one uri per line, the last played first.
+    pub async fn autoplay_json(
+        &self,
+        context_uri: String,
+        recent_tracks: String,
+    ) -> Result<String, String> {
+        let recent: Vec<String> = recent_tracks
+            .lines()
+            .map(str::trim)
+            .filter(|uri| uri.starts_with("spotify:track:"))
+            .map(str::to_owned)
+            .collect();
+        autoplay::autoplay_tracks_json(&self.session()?, &context_uri, &recent).await
     }
 
     pub fn spectrum_levels(&self) -> Vec<f32> {
