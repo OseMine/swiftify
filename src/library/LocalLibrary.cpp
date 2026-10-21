@@ -70,6 +70,63 @@ bool isWithin(const QString &path, const QString &folder)
     return path == folder || path.startsWith(folder.endsWith(u'/') ? folder : folder + u'/');
 }
 
+/// names in their own order: 2.wav before 10.wav. QCollator's numeric mode
+/// depends on ICU, which not every Qt build has, so do the digits here.
+int naturalCompare(const QString &a, const QString &b)
+{
+    qsizetype i = 0;
+    qsizetype j = 0;
+    while (i < a.size() && j < b.size()) {
+        if (a.at(i).isDigit() && b.at(j).isDigit()) {
+            qsizetype endA = i;
+            while (endA < a.size() && a.at(endA).isDigit()) {
+                ++endA;
+            }
+            qsizetype endB = j;
+            while (endB < b.size() && b.at(endB).isDigit()) {
+                ++endB;
+            }
+            qsizetype startA = i;
+            while (startA < endA - 1 && a.at(startA) == u'0') {
+                ++startA;
+            }
+            qsizetype startB = j;
+            while (startB < endB - 1 && b.at(startB) == u'0') {
+                ++startB;
+            }
+            const qsizetype lengthA = endA - startA;
+            const qsizetype lengthB = endB - startB;
+            if (lengthA != lengthB) {
+                return lengthA < lengthB ? -1 : 1;
+            }
+            for (qsizetype k = 0; k < lengthA; ++k) {
+                const QChar ca = a.at(startA + k);
+                const QChar cb = b.at(startB + k);
+                if (ca != cb) {
+                    return ca < cb ? -1 : 1;
+                }
+            }
+            i = endA;
+            j = endB;
+            continue;
+        }
+        const QChar ca = a.at(i).toCaseFolded();
+        const QChar cb = b.at(j).toCaseFolded();
+        if (ca != cb) {
+            return ca < cb ? -1 : 1;
+        }
+        ++i;
+        ++j;
+    }
+    if (i < a.size()) {
+        return 1;
+    }
+    if (j < b.size()) {
+        return -1;
+    }
+    return 0;
+}
+
 } // namespace
 
 LocalLibrary::LocalLibrary(Settings *settings, QObject *parent, const QString &storageDirectory)
@@ -351,7 +408,7 @@ QList<Song> LocalLibrary::songsFrom(const QHash<QString, Entry> &entries)
         if (a.track != b.track) {
             return a.track < b.track;
         }
-        return collator.compare(a.song.localPath(), b.song.localPath()) < 0;
+        return naturalCompare(a.song.localPath(), b.song.localPath()) < 0;
     });
 
     QList<Song> songs;
@@ -858,9 +915,6 @@ LocalLibrary::KeepResult LocalLibrary::keep(const QStringList &inputs, const QSt
     KeepResult result;
 
     // a folder gives its music files, in the order of their names
-    QCollator collator;
-    collator.setNumericMode(true);
-    collator.setCaseSensitivity(Qt::CaseInsensitive);
     QStringList paths;
     for (const QString &input : inputs) {
         const QFileInfo info(input);
@@ -874,7 +928,7 @@ LocalLibrary::KeepResult LocalLibrary::keep(const QStringList &inputs, const QSt
                 }
             }
             std::sort(found.begin(), found.end(),
-                      [&](const QString &a, const QString &b) { return collator.compare(a, b) < 0; });
+                      [](const QString &a, const QString &b) { return naturalCompare(a, b) < 0; });
             paths.append(found);
         } else if (info.isFile() && isMusicFile(input)) {
             paths.append(info.absoluteFilePath());
