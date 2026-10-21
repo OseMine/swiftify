@@ -144,6 +144,11 @@ void tuneSceneGraph()
     // platform's rasteriser, as qt's own text does at any size: a big
     // outlined icon came out a tenth lighter than it did as text
     fallback("QT_MAX_CACHED_GLYPH_SIZE", "512");
+    // qt 6.6 scrolls a wheel notch as a fixed 300 ms glide, which down a long
+    // playlist or discography reads as one step per notch. below 15000 qt
+    // flicks each notch with momentum instead, as 6.5 and earlier did; 5000
+    // keeps that from running on. a value already in the environment wins
+    fallback("QT_QUICK_FLICKABLE_WHEEL_DECELERATION", "5000");
 }
 
 #ifdef Q_OS_MACOS
