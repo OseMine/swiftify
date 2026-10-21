@@ -222,6 +222,8 @@ private slots:
         QCOMPARE(choice->property("currentIndex").toInt(), 0);
         QVERIFY(!tint->property("visible").toBool());
         QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/swiftify-icon.png")));
+        QCOMPARE(rig.appIcon.source().scheme(), QStringLiteral("qrc"));
+        QVERIFY(!QImage(rig.appIcon.source().toString()).isNull());
         QCOMPARE(preview->property("source").toUrl(), rig.appIcon.source());
 
         QVERIFY(QMetaObject::invokeMethod(choice, "activated", Q_ARG(int, 1)));
@@ -231,6 +233,8 @@ private slots:
         QVERIFY(tint->property("visible").toBool());
         QVERIFY(!tint->property("checked").toBool());
         QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/app-icon-material.png")));
+        QCOMPARE(rig.appIcon.source().scheme(), QStringLiteral("qrc"));
+        QVERIFY(!QImage(rig.appIcon.source().toString()).isNull());
 
         // a tinted icon is written where the tray and the preview can read it
         rig.settings.setTintAppIcon(true);

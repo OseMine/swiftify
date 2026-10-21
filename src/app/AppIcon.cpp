@@ -106,9 +106,12 @@ void AppIcon::refresh()
         m_image = image;
         m_source = QUrl::fromLocalFile(path);
     } else {
-        m_image = QImage(material ? kMaterialIcon : kDefaultIcon);
-        m_source = QUrl(material ? QStringLiteral("qrc:") + kMaterialIcon
-                                 : QStringLiteral("qrc:") + kDefaultIcon);
+        const QString &path = material ? kMaterialIcon : kDefaultIcon;
+        m_image = QImage(path);
+        // kDefaultIcon and kMaterialIcon start with ":/": one "qrc" in front
+        // makes "qrc:/...", the form an Image can open. "qrc:" made
+        // "qrc::/...", which the default icon preview could not.
+        m_source = QUrl(QStringLiteral("qrc") + path);
     }
 
     m_icon = QIcon(QPixmap::fromImage(m_image));
