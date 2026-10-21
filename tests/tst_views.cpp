@@ -531,6 +531,24 @@ private slots:
         QVERIFY(!titleItem->property("shouldScroll").toBool());
     }
 
+    void shortTextStaysCentredWhenItSettles()
+    {
+        Rig rig;
+        const auto text = rig.show(QStringLiteral("ScrollingText"));
+        QVERIFY(text);
+        text->setSize(QSizeF(300, 40));
+        text->setProperty("text", QStringLiteral("Hi"));
+        Rig::settle();
+
+        // both fit, so nothing starts to scroll: the second still has to end
+        // up in the middle, not where the first one's width put the slider
+        text->setProperty("text", QStringLiteral("was hier grad passiert"));
+        Rig::settle();
+        QVERIFY(!text->property("overflows").toBool());
+        const qreal textWidth = text->property("textWidth").toReal();
+        QCOMPARE(text->property("textX").toReal(), qreal(qRound((text->width() - textWidth) / 2)));
+    }
+
     void multilineLyricsStayInsideTheirHighlight_data()
     {
         QTest::addColumn<QString>("words");

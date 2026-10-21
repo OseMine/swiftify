@@ -27,6 +27,9 @@ Item {
 
     readonly property real textWidth: Math.ceil(sample.implicitWidth)
     readonly property real textHeight: Math.ceil(sample.implicitHeight)
+    /// where the text starts: the animation's when scrolling, otherwise the
+    /// offset that centres a short text in the width it was given
+    readonly property real textX: slider.x
     readonly property bool overflows: root.width > 0 && root.textWidth > root.width
     readonly property bool shouldScroll: root.overflows && root.running && root.visible && !Appearance.reduceMotion
     readonly property real scrollDistance: root.textWidth + root.spacing
@@ -128,6 +131,9 @@ Item {
     }
 
     onTextChanged: resetPosition()
+    // a new string's width is measured a moment after the change, and the
+    // centring read the old one until it settles
+    onTextWidthChanged: resetPosition()
     onWidthChanged: resetPosition()
     onShouldScrollChanged: resetPosition()
     onHorizontalAlignmentChanged: resetPosition()
