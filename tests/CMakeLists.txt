@@ -44,10 +44,13 @@ if(WIN32)
     target_link_libraries(tst_windows PRIVATE swiftify_appplugin Qt6::GuiPrivate)
 endif()
 
-# what a frame of the main window costs: run by hand, not by ctest
-find_package(Qt6 REQUIRED COMPONENTS QuickPrivate)
-qt_add_executable(bench_frames bench_frames.cpp FakeCore.h ViewRig.h)
-target_link_libraries(bench_frames PRIVATE swiftify_app swiftify_appplugin Qt6::Test Qt6::GuiPrivate Qt6::QuickPrivate)
+# what a frame of the main window costs: run by hand, not by ctest. it reads
+# unix symbols and headers, so it is not built on windows
+if(NOT WIN32)
+    find_package(Qt6 REQUIRED COMPONENTS QuickPrivate)
+    qt_add_executable(bench_frames bench_frames.cpp FakeCore.h ViewRig.h)
+    target_link_libraries(bench_frames PRIVATE swiftify_app swiftify_appplugin Qt6::Test Qt6::GuiPrivate Qt6::QuickPrivate)
+endif()
 
 # every material symbol the qml names exists in the pinned font
 find_package(Python3 COMPONENTS Interpreter)
