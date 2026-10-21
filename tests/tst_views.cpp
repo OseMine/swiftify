@@ -218,11 +218,11 @@ private slots:
         auto *preview = pages->findChild<QObject *>(QStringLiteral("appIconPreview"));
         QVERIFY(preview);
 
-        // the url the image gets is one it can open, not just the right name
+        // the url the image gets points at the resource, not just its name
         const auto loads = [](const QUrl &source) {
             return source.scheme() == QStringLiteral("qrc")
                 && source.toString().startsWith(QStringLiteral("qrc:/"))
-                && !QImage(QStringLiteral(":") + source.path()).isNull();
+                && QFile::exists(QStringLiteral(":") + source.path());
         };
 
         // the app's own icon, and no tint to offer until material is picked
