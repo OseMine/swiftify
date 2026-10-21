@@ -1,5 +1,6 @@
 #pragma once
 
+class QImage;
 class QWindow;
 
 namespace swiftify::macos {
@@ -25,5 +26,8 @@ bool limitDrawables(QWindow *window);
 /// colour space all the same, followed to another screen or profile.
 /// false if the window has no view or frame to report for yet
 bool holdColorSpace(QWindow *window);
+
+/// the icon the dock shows: the bundle's until the app picks another
+void setApplicationIcon(const QImage &image);
 
 } // namespace swiftify::macos

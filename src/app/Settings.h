@@ -63,6 +63,12 @@ class Settings : public QObject {
     Q_PROPERTY(bool trackListening READ trackListening WRITE setTrackListening NOTIFY trackListeningChanged FINAL)
     Q_PROPERTY(bool nativeTitleBar READ nativeTitleBar WRITE setNativeTitleBar NOTIFY nativeTitleBarChanged FINAL)
     Q_PROPERTY(bool trayIcon READ trayIcon WRITE setTrayIcon NOTIFY trayIconChanged FINAL)
+    /// "default" or "material": which icon the window, the dock and the tray
+    /// show. the installed desktop entry keeps its own
+    Q_PROPERTY(QString appIcon READ appIcon WRITE setAppIcon NOTIFY appIconChanged FINAL)
+    /// the material icon's blob in the theme's primary and its wave in
+    /// onPrimary, rather than swiftify's green and black
+    Q_PROPERTY(bool tintAppIcon READ tintAppIcon WRITE setTintAppIcon NOTIFY tintAppIconChanged FINAL)
     /// the whole window's zoom, as ctrl + and ctrl - set it
     Q_PROPERTY(double zoom READ zoom WRITE setZoom NOTIFY zoomChanged FINAL)
     Q_PROPERTY(bool discordEnabled READ discordEnabled WRITE setDiscordEnabled NOTIFY discordEnabledChanged FINAL)
@@ -173,6 +179,10 @@ public:
     /// linux only
     bool trayIcon() const { return m_trayIcon; }
     void setTrayIcon(bool value);
+    QString appIcon() const { return m_appIcon; }
+    void setAppIcon(const QString &value);
+    bool tintAppIcon() const { return m_tintAppIcon; }
+    void setTintAppIcon(bool value);
     double zoom() const { return m_zoom; }
     void setZoom(double value);
     bool discordEnabled() const { return m_discordEnabled; }
@@ -217,6 +227,8 @@ signals:
     void trackListeningChanged();
     void nativeTitleBarChanged();
     void trayIconChanged();
+    void appIconChanged();
+    void tintAppIconChanged();
     void zoomChanged();
     void discordEnabledChanged();
     void discordApplicationIdChanged();
@@ -266,6 +278,8 @@ private:
     bool m_nativeTitleBar = true;
 #endif
     bool m_trayIcon = true;
+    QString m_appIcon = QStringLiteral("default");
+    bool m_tintAppIcon = false;
     double m_zoom = 1.0;
     bool m_discordEnabled = false;
     QString m_discordApplicationId;

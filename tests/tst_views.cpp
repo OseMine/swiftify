@@ -203,6 +203,54 @@ private slots:
         QCOMPARE(selection->property("text").toString(), QStringLiteral("Interface language"));
     }
 
+    void theAppearancePagePicksTheAppIcon()
+    {
+        Rig rig;
+        const auto pages = rig.show(QStringLiteral("SettingsPages"));
+        QVERIFY(pages);
+        pages->setProperty("page", 4);
+        Rig::settle();
+
+        auto *choice = pages->findChild<QObject *>(QStringLiteral("appIconSelection"));
+        QVERIFY(choice);
+        auto *tint = pages->findChild<QObject *>(QStringLiteral("tintAppIconSwitch"));
+        QVERIFY(tint);
+        auto *preview = pages->findChild<QObject *>(QStringLiteral("appIconPreview"));
+        QVERIFY(preview);
+
+        // the app's own icon, and no tint to offer until material is picked
+        QCOMPARE(choice->property("currentIndex").toInt(), 0);
+        QVERIFY(!tint->property("visible").toBool());
+        QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/swiftify-icon.png")));
+        QCOMPARE(preview->property("source").toUrl(), rig.appIcon.source());
+
+        QVERIFY(QMetaObject::invokeMethod(choice, "activated", Q_ARG(int, 1)));
+        Rig::settle();
+        QCOMPARE(rig.settings.appIcon(), QStringLiteral("material"));
+        QCOMPARE(choice->property("currentIndex").toInt(), 1);
+        QVERIFY(tint->property("visible").toBool());
+        QVERIFY(!tint->property("checked").toBool());
+        QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/app-icon-material.png")));
+
+        // a tinted icon is written where the tray and the preview can read it
+        rig.settings.setTintAppIcon(true);
+        Rig::settle();
+        QVERIFY(tint->property("checked").toBool());
+        QVERIFY(rig.appIcon.source().isLocalFile());
+        const QImage icon(rig.appIcon.source().toLocalFile());
+        QVERIFY(!icon.isNull());
+        QCOMPARE(icon.pixelColor(512, 200).rgba(), rig.theme.colors()->primary().rgba());
+        QCOMPARE(icon.pixelColor(512, 512).rgba(), rig.theme.colors()->onPrimary().rgba());
+        QCOMPARE(preview->property("source").toUrl(), rig.appIcon.source());
+
+        // going back leaves the tint for whenever material is chosen again
+        QVERIFY(QMetaObject::invokeMethod(choice, "activated", Q_ARG(int, 0)));
+        Rig::settle();
+        QVERIFY(!tint->property("visible").toBool());
+        QVERIFY(rig.settings.tintAppIcon());
+        QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/swiftify-icon.png")));
+    }
+
     void initTestCase()
     {
         // the face the app draws in, as main() loads it

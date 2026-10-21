@@ -218,6 +218,8 @@ qt_add_qml_module(swiftify_app
     SOURCES ${SWIFTIFY_SOURCES}
     QML_FILES ${SWIFTIFY_QML}
     RESOURCES resources/swiftify-icon.png resources/cameo.png
+        resources/app-icon-material.png resources/app-icon-material-blob.png
+        resources/app-icon-material-mark.png
     DEPENDENCIES QtQuick)
 # BATCHABLE: the spectrum's material can be merged into the scene graph's
 # batches, which needs the extra vertex input qsb adds for it.

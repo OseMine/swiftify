@@ -1,4 +1,5 @@
 #include "app/AppController.h"
+#include "app/AppIcon.h"
 #include "app/ErrorCenter.h"
 #include "app/Fonts.h"
 #include "app/Paths.h"
@@ -44,7 +45,6 @@
 #include <QGuiApplication>
 #endif
 #include <QEvent>
-#include <QIcon>
 #include <QPlatformSurfaceEvent>
 #include <QSet>
 #include <QWindow>
@@ -254,10 +254,6 @@ int main(int argc, char *argv[])
 #ifdef Q_OS_UNIX
     quitGracefullyOnSignals(application);
 #endif
-#ifndef Q_OS_MACOS
-    // x11 shows this; wayland goes by the desktop entry, macos by the bundle
-    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/qt/qml/Swiftify/resources/swiftify-icon.png")));
-#endif
 
     SingleInstance instance;
     if (instance.forwardToRunningInstance(QCoreApplication::arguments())) {
@@ -283,6 +279,8 @@ int main(int argc, char *argv[])
 #endif
     Translations translations(&settings);
     Theme theme(&settings);
+    // the icon the window, the dock and the tray show, from the settings
+    [[maybe_unused]] AppIcon appIcon(&settings, &theme);
     ErrorCenter errors(nullptr);
     QNetworkAccessManager network;
     RustCore rustCore;

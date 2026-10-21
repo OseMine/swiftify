@@ -3,6 +3,7 @@
 #include "FakeCore.h"
 
 #include "app/AppController.h"
+#include "app/AppIcon.h"
 #include "app/ErrorCenter.h"
 #include "app/Settings.h"
 #include "artwork/ArtworkCache.h"
@@ -41,6 +42,7 @@ struct ViewRig {
     QTemporaryDir directory;
     Settings settings {directory.filePath(QStringLiteral("swiftify.conf"))};
     Theme theme {&settings};
+    AppIcon appIcon {&settings, &theme};
     ErrorCenter errors {nullptr};
     MemoryCredentialStore credentials;
     QNetworkAccessManager network;

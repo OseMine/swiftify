@@ -247,6 +247,34 @@ private slots:
         Settings reopened(path);
         QVERIFY(reopened.windowControlsOnRight());
     }
+
+    void appIconPreferencesPersist()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QStringLiteral("swiftify.conf"));
+        {
+            Settings settings(path);
+            QCOMPARE(settings.appIcon(), QStringLiteral("default"));
+            QVERIFY(!settings.tintAppIcon());
+
+            QSignalSpy icon(&settings, &Settings::appIconChanged);
+            QSignalSpy tint(&settings, &Settings::tintAppIconChanged);
+            settings.setAppIcon(QStringLiteral("material"));
+            settings.setAppIcon(QStringLiteral("material"));
+            QCOMPARE(icon.count(), 1);
+            // only the two offered icons are kept
+            settings.setAppIcon(QStringLiteral("material-design"));
+            QCOMPARE(settings.appIcon(), QStringLiteral("default"));
+            settings.setAppIcon(QStringLiteral("material"));
+
+            settings.setTintAppIcon(true);
+            settings.setTintAppIcon(true);
+            QCOMPARE(tint.count(), 1);
+        }
+        Settings reopened(path);
+        QCOMPARE(reopened.appIcon(), QStringLiteral("material"));
+        QVERIFY(reopened.tintAppIcon());
+    }
 };
 
 int main(int argc, char **argv)

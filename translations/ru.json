@@ -542,5 +542,14 @@
   "Maximize cover": "Развернуть обложку",
   "Restore cover": "Свернуть обложку",
   "Pre-amp": "Предусиление",
-  " dB": " дБ"
+  " dB": " дБ",
+  "App icon": "Значок приложения",
+  "Material": "Material",
+  "Default": "По умолчанию",
+  "Icon": "Значок",
+  "Tint icon": "Окрашивать значок",
+  "tinted with the theme's colours": "окрашен в цвета темы",
+  "the material icon": "значок Material",
+  "swiftify's own icon": "собственный значок Swiftify",
+  "the icon follows the theme's primary and on-primary colours. the installed shortcut and desktop entry keep swiftify's own icon.": "значок следует основному и контрастному цветам темы. установленный ярлык и файл рабочего стола сохраняют собственный значок Swiftify."
 }

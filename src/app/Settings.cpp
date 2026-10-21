@@ -184,6 +184,9 @@ void Settings::load()
     m_trackListening = stored<bool>(m_store, "trackListening", m_trackListening);
     m_nativeTitleBar = stored<bool>(m_store, "nativeTitleBar", m_nativeTitleBar);
     m_trayIcon = stored<bool>(m_store, "trayIcon", m_trayIcon);
+    m_appIcon = oneOf(stored<QString>(m_store, "appIcon", m_appIcon),
+                      {QStringLiteral("default"), QStringLiteral("material")}, QStringLiteral("default"));
+    m_tintAppIcon = stored<bool>(m_store, "tintAppIcon", m_tintAppIcon);
     m_zoom = std::clamp(stored<double>(m_store, "zoom", m_zoom), 0.5, 2.0);
     m_discordEnabled = stored<bool>(m_store, "discordEnabled", false);
     const QString id = stored<QString>(m_store, "discordApplicationId", {}).trimmed();
@@ -546,6 +549,28 @@ void Settings::setTrayIcon(bool value)
     m_trayIcon = value;
     savePreference(QStringLiteral("trayIcon"), value);
     emit trayIconChanged();
+}
+
+void Settings::setAppIcon(const QString &raw)
+{
+    const QString value = oneOf(raw.trimmed(), {QStringLiteral("default"), QStringLiteral("material")},
+                                QStringLiteral("default"));
+    if (m_appIcon == value) {
+        return;
+    }
+    m_appIcon = value;
+    savePreference(QStringLiteral("appIcon"), value);
+    emit appIconChanged();
+}
+
+void Settings::setTintAppIcon(bool value)
+{
+    if (m_tintAppIcon == value) {
+        return;
+    }
+    m_tintAppIcon = value;
+    savePreference(QStringLiteral("tintAppIcon"), value);
+    emit tintAppIconChanged();
 }
 
 void Settings::setZoom(double raw)

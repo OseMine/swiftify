@@ -790,7 +790,7 @@ ApplicationWindow {
         sourceComponent: Platform.SystemTrayIcon {
             objectName: "swiftifyTrayIcon"
             visible: true
-            icon.source: "qrc:/qt/qml/Swiftify/resources/swiftify-icon.png"
+            icon.source: AppIcon.source
             tooltip: Player.hasSong ? Player.currentSong.name + " — " + Player.currentSong.artists : "Swiftify"
             onActivated: (reason) => {
                 if (reason === Platform.SystemTrayIcon.Trigger || reason === Platform.SystemTrayIcon.DoubleClick) {

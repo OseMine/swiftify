@@ -2,7 +2,10 @@
 
 #include <QGuiApplication>
 
+#include <QBuffer>
+#include <QByteArray>
 #include <QColorSpace>
+#include <QImage>
 #include <QLoggingCategory>
 #include <QWindow>
 
@@ -150,6 +153,24 @@ bool limitDrawables(QWindow *window)
     const bool found = view.layer && limitIn(view.layer);
     qCDebug(lcMacWindow) << "two drawables for" << window << found;
     return found;
+}
+
+void setApplicationIcon(const QImage &image)
+{
+    if (image.isNull()) {
+        // the bundle's own icon, which the dock falls back to
+        [NSApp setApplicationIconImage:nil];
+        return;
+    }
+    QByteArray png;
+    QBuffer buffer(&png);
+    buffer.open(QIODevice::WriteOnly);
+    image.save(&buffer, "PNG");
+    NSData *data = [NSData dataWithBytes:png.constData() length:png.size()];
+    NSImage *icon = [[NSImage alloc] initWithData:data];
+    if (icon) {
+        [NSApp setApplicationIconImage:icon];
+    }
 }
 
 } // namespace swiftify::macos

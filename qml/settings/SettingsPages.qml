@@ -451,6 +451,70 @@ Item {
             }
 
             ContentSection {
+                title: qsTr("App icon")
+                symbol: "apps"
+
+                Item {
+                    width: parent.width
+                    height: 64
+
+                    Image {
+                        objectName: "appIconPreview"
+                        x: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 56
+                        height: 56
+                        source: AppIcon.source
+                        sourceSize.width: 56
+                        sourceSize.height: 56
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        asynchronous: false
+                    }
+                    Column {
+                        x: 78
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
+
+                        StyledText {
+                            text: Settings.appIcon === "material" ? qsTr("Material") : qsTr("Default")
+                        }
+                        StyledText {
+                            color: Appearance.colors.onSurfaceVariant
+                            font.pixelSize: Appearance.fontSize.smaller
+                            text: Settings.appIcon === "material"
+                                ? (Settings.tintAppIcon
+                                    ? qsTr("tinted with the theme's colours")
+                                    : qsTr("the material icon"))
+                                : qsTr("swiftify's own icon")
+                        }
+                    }
+                }
+
+                ConfigSelection {
+                    objectName: "appIconSelection"
+                    text: qsTr("Icon")
+                    currentIndex: Settings.appIcon === "material" ? 1 : 0
+                    segments: [
+                        Segment { text: qsTr("Default") },
+                        Segment { text: qsTr("Material") }
+                    ]
+                    onActivated: (index) => Settings.appIcon = index === 0 ? "default" : "material"
+                }
+                ConfigSwitch {
+                    objectName: "tintAppIconSwitch"
+                    visible: Settings.appIcon === "material"
+                    text: qsTr("Tint icon")
+                    checked: Settings.tintAppIcon
+                    onToggledTo: (checked) => Settings.tintAppIcon = checked
+                }
+                NoteText {
+                    visible: Settings.appIcon === "material"
+                    text: qsTr("the icon follows the theme's primary and on-primary colours. the installed shortcut and desktop entry keep swiftify's own icon.")
+                }
+            }
+
+            ContentSection {
                 // a mac window keeps its traffic lights, and has no tray
                 visible: !App.macOS
                 title: qsTr("Window")
@@ -862,7 +926,7 @@ Item {
                             anchors.centerIn: parent
                             width: 46
                             height: 46
-                            source: "qrc:/qt/qml/Swiftify/resources/swiftify-icon.png"
+                            source: AppIcon.source
                             sourceSize: Qt.size(96, 96)
                             smooth: true
                             mipmap: true
