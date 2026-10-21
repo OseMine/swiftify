@@ -218,12 +218,18 @@ private slots:
         auto *preview = pages->findChild<QObject *>(QStringLiteral("appIconPreview"));
         QVERIFY(preview);
 
+        // the url the image gets is one it can open, not just the right name
+        const auto loads = [](const QUrl &source) {
+            return source.scheme() == QStringLiteral("qrc")
+                && source.toString().startsWith(QStringLiteral("qrc:/"))
+                && !QImage(QStringLiteral(":") + source.path()).isNull();
+        };
+
         // the app's own icon, and no tint to offer until material is picked
         QCOMPARE(choice->property("currentIndex").toInt(), 0);
         QVERIFY(!tint->property("visible").toBool());
         QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/swiftify-icon.png")));
-        QCOMPARE(rig.appIcon.source().scheme(), QStringLiteral("qrc"));
-        QVERIFY(!QImage(rig.appIcon.source().toString()).isNull());
+        QVERIFY(loads(rig.appIcon.source()));
         QCOMPARE(preview->property("source").toUrl(), rig.appIcon.source());
 
         QVERIFY(QMetaObject::invokeMethod(choice, "activated", Q_ARG(int, 1)));
@@ -233,8 +239,7 @@ private slots:
         QVERIFY(tint->property("visible").toBool());
         QVERIFY(!tint->property("checked").toBool());
         QVERIFY(rig.appIcon.source().toString().endsWith(QStringLiteral("resources/app-icon-material.png")));
-        QCOMPARE(rig.appIcon.source().scheme(), QStringLiteral("qrc"));
-        QVERIFY(!QImage(rig.appIcon.source().toString()).isNull());
+        QVERIFY(loads(rig.appIcon.source()));
 
         // a tinted icon is written where the tray and the preview can read it
         rig.settings.setTintAppIcon(true);
